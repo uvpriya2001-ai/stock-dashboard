@@ -16,12 +16,6 @@ st.set_page_config(page_title="Stock Dashboard", layout="wide")
 if "tickers" not in st.session_state:
     st.session_state.tickers = []
 
-if val and val not in st.session_state.tickers:
-    st.session_state.tickers.append(val)
-    save_tickers(st.session_state.tickers)
-    st.cache_data.clear()
-    st.rerun()
-
 st.session_state.tickers.remove(remove_ticker)
 save_tickers(st.session_state.tickers)
 st.cache_data.clear()
