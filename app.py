@@ -1,9 +1,22 @@
-# app.py
 import streamlit as st
 import pandas as pd
 import yfinance as yf
 import plotly.express as px
 import numpy as np
+import json
+import os
+
+# To show saved stocks
+
+def load_saved_tickers():
+    if os.path.exists("stocks.json"):
+        with open("stocks.json", "r") as f:
+            return json.load(f)
+    return ["RELIANCE.NS", "TCS.NS", "INFY.NS"]
+
+def save_tickers(tickers):
+    with open("stocks.json", "w") as f:
+        json.dump(tickers, f)
 
 st.set_page_config(page_title="Stock Dashboard", layout="wide")
 
@@ -11,14 +24,19 @@ st.set_page_config(page_title="Stock Dashboard", layout="wide")
 # SESSION STATE
 # ==================================================
 if "tickers" not in st.session_state:
-    st.session_state.tickers = [
-        "RELIANCE.NS",
-        "TCS.NS",
-        "INFY.NS",
-        "HDFCBANK.NS",
-        "ITC.NS"
-    ]
+    st.session_state.tickers = load_saved_tickers()
 
+if val and val not in st.session_state.tickers:
+    st.session_state.tickers.append(val)
+    save_tickers(st.session_state.tickers)
+    st.cache_data.clear()
+    st.rerun()
+
+st.session_state.tickers.remove(remove_ticker)
+save_tickers(st.session_state.tickers)
+st.cache_data.clear()
+st.rerun()
+    
 # ==================================================
 # HELPERS
 # ==================================================
