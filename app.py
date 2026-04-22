@@ -12,15 +12,19 @@ st.set_page_config(page_title="Stock Dashboard", layout="wide")
 # SESSION STATE
 # ==================================================
 
+def save_tickers(tickers):
+    with open("stocks.json", "w") as f:
+        json.dump(tickers, f)
 
+def load_saved_tickers():
+    if os.path.exists("stocks.json"):
+        with open("stocks.json", "r") as f:
+            return json.load(f)
+    return []
+    
 if "tickers" not in st.session_state:
     st.session_state.tickers = []
 
-st.session_state.tickers.remove(remove_ticker)
-save_tickers(st.session_state.tickers)
-st.cache_data.clear()
-st.rerun()
-    
 # ==================================================
 # HELPERS
 # ==================================================
@@ -163,10 +167,11 @@ with st.sidebar:
     )
 
     if st.button("Remove"):
-        if remove_ticker:
-            st.session_state.tickers.remove(remove_ticker)
-            st.cache_data.clear()
-            st.rerun()
+    if remove_ticker:
+        st.session_state.tickers.remove(remove_ticker)
+        save_tickers(st.session_state.tickers)
+        st.cache_data.clear()
+        st.rerun()
 
     st.markdown("---")
 
