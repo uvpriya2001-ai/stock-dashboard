@@ -68,12 +68,7 @@ if not check_password():
 # ==================================================
 DEFAULT_TICKERS = [
     "IREDA.NS", "BEL.NS", "AFFLE.NS", "HAVELLS.NS", "POLYCAB.NS",
-    "BAJAJ-AUTO.NS", "BAJFINANCE.NS", "ICICIGI.NS", "HDFCAMC.NS", "HDFCBANK.NS",
-    "CDSL.NS", "NSDL.NS", "CAMS.NS", "KFINTECH.NS", "POWERINDIA.NS",
-    "ABB.NS", "PAGEIND.NS", "MAZDOCK.NS", "COCHINSHIP.NS", "HAL.NS",
-    "VOLTAS.NS", "WONDERLA.NS", "NAUKRI.NS", "ICICIAMC.NS", "SUPREMEIND.NS",
-    "TATAELXSI.NS", "LT.NS", "SBIN.NS", "TCS.NS", "LTTS.NS",
-    "INFY.NS", "VARUNBEV.NS"
+    "BAJAJ-AUTO.NS"
 ]
 
 if "tickers" not in st.session_state:
