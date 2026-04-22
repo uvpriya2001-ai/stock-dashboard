@@ -6,25 +6,15 @@ import numpy as np
 import json
 import os
 
-# To show saved stocks
-
-def load_saved_tickers():
-    if os.path.exists("stocks.json"):
-        with open("stocks.json", "r") as f:
-            return json.load(f)
-    return ["RELIANCE.NS", "TCS.NS", "INFY.NS"]
-
-def save_tickers(tickers):
-    with open("stocks.json", "w") as f:
-        json.dump(tickers, f)
-
 st.set_page_config(page_title="Stock Dashboard", layout="wide")
 
 # ==================================================
 # SESSION STATE
 # ==================================================
+
+
 if "tickers" not in st.session_state:
-    st.session_state.tickers = load_saved_tickers()
+    st.session_state.tickers = []
 
 if val and val not in st.session_state.tickers:
     st.session_state.tickers.append(val)
@@ -165,6 +155,7 @@ with st.sidebar:
 
     if st.button("Add"):
         val = new_ticker.strip().upper()
+
         if val and val not in st.session_state.tickers:
             st.session_state.tickers.append(val)
             st.cache_data.clear()
@@ -192,7 +183,7 @@ with st.sidebar:
     st.markdown("### Current Watchlist")
     for t in st.session_state.tickers:
         st.write("•", t)
-
+        
 # ==================================================
 # DATA
 # ==================================================
