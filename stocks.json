@@ -1,3 +1,33 @@
 {
-  "tickers": ["IREDA.NS", "BEL.NS", "TCS.NS", "RELIANCE.NS"]
+  "tickers": [
+    "IREDA.NS",
+    "AFFLE.NS",
+    "HAVELLS.NS",
+    "POLYCAB.NS",
+    "BAJAJ-AUTO.NS",
+    "BAJFINANCE.NS",
+    "ICICIGI.NS",
+    "HDFCAMC.NS",
+    "HDFCBANK.NS",
+    "CDSL.NS",
+    "NSDL.NS",
+    "CAMS.NS",
+    "KFINTECH.NS",
+    "POWERINDIA.NS",
+    "ABB.NS",
+    "PAGEIND.NS",
+    "MAZDOCK.NS",
+    "COCHINSHIP.NS",
+    "HAL.NS",
+    "BEL.NS",
+    "VOLTAS.NS",
+    "WONDERLA.NS",
+    "NAUKRI.NS",
+    "TCS.NS",
+    "LTTS.NS",
+    "INFY.NS",
+    "TATAELXSI.NS",
+    "LT.NS",
+    "SBIN.NS"
+  ]
 }
