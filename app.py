@@ -40,7 +40,13 @@ def rsi(series, period=14):
     gain = delta.clip(lower=0).rolling(period).mean()
     loss = (-delta.clip(upper=0)).rolling(period).mean()
     rs = gain / loss
-    return 100 - (100 / (1 + rs))
+    rsi = 100 - (100 / (1 + rs))
+
+    if rsi >= 70:
+      return "Overbought"
+    elif rsi <= 30:
+      return "Oversold"
+    return "Neutral"
 
 def bollinger_label(close):
     ma = close.rolling(20).mean().iloc[-1]
@@ -200,14 +206,13 @@ styled = df.style.map(
 })
 
 st.subheader("Portfolio Table")
-st.dataframe(styled, use_container_width=True, hide_index=True, height=450)
-
-
-col1, col2 = st.columns(2)
+st.dataframe(styled, use_container_width=True, hide_index=True)
 
 # ---------------- Sector Dashboard ----------------- #
 
-# ---------------- PIE CHART ----------------
+left, right = st.columns(2)
+
+# ---------------- PIE CHART ---------------- #
 with left:
     st.subheader("Sector Concentration")
 
@@ -227,7 +232,8 @@ with left:
 
     st.plotly_chart(fig_pie, use_container_width=True)
 
-# ---------------- CORRELATION HEATMAP ----------------
+# ---------------- CORRELATION HEATMAP ---------------- #
+
 with right:
     st.subheader("Correlation Heatmap")
 
