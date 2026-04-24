@@ -160,7 +160,7 @@ with st.sidebar:
             st.cache_data.clear()
             st.rerun()
 
-    remove_ticker = st.selectbox("Remove Stock", placeholder="SBIN.NS", [""] + st.session_state.tickers)
+    remove_ticker = st.selectbox("Remove Stock", [""] + st.session_state.tickers)
 
     if st.button("Remove"):
         if remove_ticker:
