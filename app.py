@@ -150,7 +150,7 @@ def load_data(tickers):
 with st.sidebar:
     st.header("Manage Stocks")
 
-    new_ticker = st.text_input("Add Stock", placeholder="SBIN.NS / AAPL")
+    new_ticker = st.text_input("Add Stock", placeholder="SBIN.NS")
 
     if st.button("Add"):
         val = new_ticker.strip().upper()
@@ -160,9 +160,7 @@ with st.sidebar:
             st.cache_data.clear()
             st.rerun()
 
-    st.markdown("---")
-
-    remove_ticker = st.selectbox("Remove Stock", [""] + st.session_state.tickers)
+    remove_ticker = st.selectbox("Remove Stock", placeholder="SBIN.NS", [""] + st.session_state.tickers)
 
     if st.button("Remove"):
         if remove_ticker:
@@ -200,7 +198,7 @@ def color_signal(val):
         return "color:red;font-weight:bold"
     elif val in ["Underbought", "Bullish", "Golden Cross", "Oversold", "Positive"]:
         return "color:green;font-weight:bold"
-    return "color:black;font-weight:bold"
+    return "color:darkgrey;font-weight:bold"
 
 display_df = df[
     [
@@ -216,9 +214,14 @@ display_df = df[
     ]
 ]
 
-styled = display_df.style.map(
+styled = display_df.style.format({
+    "Price": "{:.2f}",
+    "Day %": "{:.2f}",
+    "Month %": "{:.2f}",
+    "Year %": "{:.2f}"
+}).map(
     color_signal,
-    subset=["RSI", "Bollinger Bands", "Momentum Score", "MA Cross"]
+    subset=["RSI", "Bollinger Bands", "MA Cross", "Momentum Score"]
 )
 
 st.subheader("Portfolio Table")
@@ -245,7 +248,7 @@ with right:
             corr,
             text_auto=".2f",
             aspect="auto",
-            color_continuous_scale="RdYlGn",
+            color_continuous_scale="GnYlRd",
             zmin=-1,
             zmax=1
         )
