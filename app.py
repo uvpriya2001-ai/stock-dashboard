@@ -111,6 +111,7 @@ def market_data():
     vix = yf.Ticker("^INDIAVIX").history(period="5d")
 
     nifty_ret = (nifty["Close"].iloc[-1] / nifty["Close"].iloc[-2] - 1) * 100
+    nifty_val = nifty["Close"].iloc[-1]
     vix_val = vix["Close"].iloc[-1]
     vix_ret = (vix["Close"].iloc[-1] / vix["Close"].iloc[-2] - 1) * 100
 
@@ -187,9 +188,10 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-# ---------------- Main ----------------- #
+# ---------------- Watchlist Cards ----------------- #
 
 st.title("Stock Dashboard")
+st.caption("This dashboard monitors all your favourite stocks at one place. It's a useful tool for trading.")
 
 df, price_map = load_data(tuple(st.session_state.tickers))
 nifty_ret, vix_val, vix_ret = market_data()
@@ -203,7 +205,7 @@ c1, c2, c3, c4, c5 = st.columns(5)
 c1.metric("Top Day Gainer", df.loc[df["Day %"].idxmax(), "Ticker"], f'{df["Day %"].max():.2f}%')
 c2.metric("Top Month Gainer", df.loc[df["Month %"].fillna(-9999).idxmax(), "Ticker"], f'{df["Month %"].max():.2f}%')
 c3.metric("Top Year Gainer", df.loc[df["Year %"].idxmax(), "Ticker"], f'{df["Year %"].max():.2f}%')
-c4.metric("Nifty 50", f"{nifty_ret:.2f}%")
+c4.metric("Nifty 50",  f"{nifty_val:.2f}", f"{nifty_ret:.2f}%")
 c5.metric("India VIX", f"{vix_val:.2f}", f"{vix_ret:.2f}%")
 
 # ---------------- Table ----------------- #
