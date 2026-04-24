@@ -200,13 +200,18 @@ if not df.empty:
     c1, c2, c3 = st.columns(3)
     st.subheader('Performance Leaders')
 
-    dg = df.loc[df['Day %'].idxmax()]
-    dl = df.loc[df['Day %'].idxmin()]
-    mg = df.loc[df['Month %'].idxmax()]
-    ml = df.loc[df['Month %'].idxmin()]
-    yg = df.loc[df['Year %'].idxmax()]
-    yl = df.loc[df['Year %'].idxmin()]
+    valid = df.dropna(subset=['Day %', 'Month %', 'Year %'])
 
+if not valid.empty:
+    dg = valid.loc[valid['Day %'].idxmax()]
+    dl = valid.loc[valid['Day %'].idxmin()]
+    mg = valid.loc[valid['Month %'].idxmax()]
+    ml = valid.loc[valid['Month %'].idxmin()]
+    yg = valid.loc[valid['Year %'].idxmax()]
+    yl = valid.loc[valid['Year %'].idxmin()]
+else:
+    st.warning("No valid market data available.")
+    st.stop()
     c1, c2, c3 = st.columns(3)
 
     with c1:
