@@ -100,6 +100,7 @@ def momentum_label(close):
 
 
 # ----------------- Load the Stock Data ----------------- #
+# ------------------------------------------------------- #
 
 @st.cache_data(ttl=900)
 def load_data(tickers):
@@ -197,21 +198,21 @@ df = load_data(tuple(st.session_state.tickers))
 # ----------------- Performance Dashboard ----------------- #
 
 if not df.empty:
-    c1, c2, c3 = st.columns(3)
-    st.subheader('Performance Leaders')
+    st.subheader("Performance Leaders")
 
-    valid = df.dropna(subset=['Day %', 'Month %', 'Year %'])
+    valid = df.dropna(subset=["Day %", "Month %", "Year %"])
 
-if not valid.empty:
-    dg = valid.loc[valid['Day %'].idxmax()]
-    dl = valid.loc[valid['Day %'].idxmin()]
-    mg = valid.loc[valid['Month %'].idxmax()]
-    ml = valid.loc[valid['Month %'].idxmin()]
-    yg = valid.loc[valid['Year %'].idxmax()]
-    yl = valid.loc[valid['Year %'].idxmin()]
-else:
-    st.warning("No valid market data available.")
-    st.stop()
+    if valid.empty:
+        st.warning("No valid market data available.")
+        st.stop()
+
+    dg = valid.loc[valid["Day %"].idxmax()]
+    dl = valid.loc[valid["Day %"].idxmin()]
+    mg = valid.loc[valid["Month %"].idxmax()]
+    ml = valid.loc[valid["Month %"].idxmin()]
+    yg = valid.loc[valid["Year %"].idxmax()]
+    yl = valid.loc[valid["Year %"].idxmin()]
+
     c1, c2, c3 = st.columns(3)
 
     with c1:
@@ -225,21 +226,48 @@ else:
     with c3:
         st.markdown(f"<div class='leader-card'><div class='leader-label'>Year Gainer</div><div class='leader-ticker'>{yg['Ticker']}</div><div class='leader-green'>{yg['Year %']:+.2f}%</div></div>", unsafe_allow_html=True)
         st.markdown(f"<div class='leader-card'><div class='leader-label'>Year Loser</div><div class='leader-ticker'>{yl['Ticker']}</div><div class='leader-red'>{yl['Year %']:+.2f}%</div></div>", unsafe_allow_html=True)
+
+# ----------------- Portfolio Table ----------------- #
     
-    st.subheader('Portfolio Table')
-    st.dataframe(df, use_container_width=True, hide_index=True)
+    st.subheader("Portfolio Table")
 
-    col1, col2 = st.columns(2)
+def color_signal(val):
+    if val in ["Bearish", "Death Cross", "Overbought"]:
+        return "color: red; font-weight: bold"
+    elif val in ["Bullish", "Golden Cross", "Oversold", "Underbought", "Positive"]:
+        return "color: green; font-weight: bold"
+    elif val == "Neutral":
+        return "color: gray; font-weight: bold"
+    return ""
 
-    with col1:
-        st.subheader('Sector Allocation')
-        sector_df = df.groupby('Sector').size().reset_index(name='Count')
-        fig = px.pie(sector_df, names='Sector', values='Count')
-        st.plotly_chart(fig, use_container_width=True)
+def color_pct(val):
+    try:
+        return "color: green; font-weight: bold" if float(val) >= 0 else "color: red; font-weight: bold"
+    except:
+        return ""
 
-    with col2:
-        st.subheader('Returns Comparison')
-        chart_df = df[['Ticker','Day %','Month %','Year %']].set_index('Ticker')
-        st.bar_chart(chart_df)
-    else:
-        st.warning('No data available.')
+tab1, tab2, tab3 = st.tabs(["Overview", "Technicals", "Performance"])
+
+with tab1:
+    overview = df[["Ticker", "Company Name", "Sector", "Price", "52W High", "52W Low"]]
+    st.dataframe(overview, use_container_width=True, hide_index=True)
+
+with tab2:
+    technicals = df[["Ticker", "RSI", "Bollinger Bands", "MA Cross", "Momentum Score"]]
+
+    styled_tech = (
+        technicals.style
+        .map(color_signal, subset=["Bollinger Bands", "MA Cross", "Momentum Score"])
+    )
+
+    st.dataframe(styled_tech, use_container_width=True, hide_index=True, height=500)
+
+with tab3:
+    perf = df[["Ticker", "Day %", "Month %", "Year %"]]
+
+    styled_perf = (
+        perf.style
+        .map(color_pct, subset=["Day %", "Month %", "Year %"])
+    )
+
+    st.dataframe(styled_perf, use_container_width=True, hide_index=True, height=500)
