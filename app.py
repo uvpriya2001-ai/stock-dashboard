@@ -159,25 +159,27 @@ def load_data(tickers):
             if hist.empty:
                 continue
 
-            # Handle MultiIndex columns safely
+            # Always extract Close as Series
             if isinstance(hist.columns, pd.MultiIndex):
-                if "Close" in hist.columns.get_level_values(0):
-                    close = hist["Close"].iloc[:, 0].dropna()
-                else:
-                    continue
+                close = hist["Close"].iloc[:, 0]
             else:
-                if "Close" not in hist.columns:
-                    continue
-                close = hist["Close"].dropna()
+                close = hist["Close"]
 
-            if close.empty or len(close) < 2:
+            close = pd.Series(close).dropna()
+
+            if len(close) < 2:
                 continue
 
             current = float(close.iloc[-1])
+            prev = float(close.iloc[-2])
+            start = float(close.iloc[0])
             high = float(close.max())
             low = float(close.min())
 
-            
+            month_ret = None
+            if len(close) >= 21:
+                month_ret = round((current / float(close.iloc[-21]) - 1) * 100, 2)
+
             # Sector fetch
             sector = "Unknown"
             try:
@@ -190,11 +192,11 @@ def load_data(tickers):
 
             rows.append({
                 "Ticker": ticker,
-                "Sector": "Unknown",
+                "Sector": sector,
                 "Price": round(current, 2),
-                "Day %": round((current / close.iloc[-2] - 1) * 100, 2),
-                "Month %": round((current / close.iloc[-21] - 1) * 100, 2) if len(close) >= 21 else None,
-                "Year %": round((current / close.iloc[0] - 1) * 100, 2),
+                "Day %": round((current / prev - 1) * 100, 2),
+                "Month %": month_ret,
+                "Year %": round((current / start - 1) * 100, 2),
                 "RSI": rsi(close),
                 "Bollinger Bands": bollinger_label(close),
                 "MA Cross": ma_cross(close),
@@ -208,7 +210,6 @@ def load_data(tickers):
             continue
 
     return pd.DataFrame(rows), price_map
-
 
 # ---------------- Sidebar ----------------- #
 with st.sidebar:
