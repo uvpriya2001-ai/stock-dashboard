@@ -1,50 +1,27 @@
-# ----------------- Setting up the libraries ----------------- #
-
+# app.py
 import streamlit as st
 import pandas as pd
 import yfinance as yf
 import plotly.express as px
-import json
-import os
 import numpy as np
 
-# ----------------- Loading the watchlist ----------------- #
+st.set_page_config(page_title="Stock Dashboard", layout="wide")
 
-WATCHLIST_FILE = "stocks.json"
-DEFAULT_TICKERS = ["IREDA.NS", "BEL.NS"]
-
-st.set_page_config(layout="wide")
-
-def load_tickers():
-    try:
-        if os.path.exists(WATCHLIST_FILE):
-            with open(WATCHLIST_FILE, "r", encoding="utf-8") as f:
-                data = json.load(f)
-
-            if isinstance(data, dict) and "tickers" in data:
-                if isinstance(data["tickers"], list):
-                    return [str(x).upper().strip() for x in data["tickers"] if str(x).strip()]
-
-            if isinstance(data, list):
-                return [str(x).upper().strip() for x in data if str(x).strip()]
-    except:
-        pass
-
-    return DEFAULT_TICKERS.copy()
-
+# ==================================================
+# SESSION STATE
+# ==================================================
 if "tickers" not in st.session_state:
-    st.session_state.tickers = load_tickers()
+    st.session_state.tickers = [
+        "RELIANCE.NS",
+        "TCS.NS",
+        "INFY.NS",
+        "HDFCBANK.NS",
+        "ITC.NS"
+    ]
 
-def save_tickers(tickers):
-    try:
-        with open(WATCHLIST_FILE, "w", encoding="utf-8") as f:
-            json.dump({"tickers": tickers}, f, indent=4)
-    except:
-        pass
-
-
-# ----------------- Important Technical Indicators ----------------- #
-
+# ==================================================
+# HELPERS
+# ==================================================
 def rsi(series, period=14):
     delta = series.diff()
     gain = delta.clip(lower=0).rolling(period).mean()
@@ -98,10 +75,9 @@ def momentum_label(close):
         return "Underbought"
     return "Bearish"
 
-
-# ----------------- Load the Stock Data ----------------- #
-# ------------------------------------------------------- #
-
+# ==================================================
+# LOAD DATA
+# ==================================================
 @st.cache_data(ttl=900)
 def load_data(tickers):
     rows = []
@@ -153,121 +129,213 @@ def load_data(tickers):
 
     return pd.DataFrame(rows)
 
-# ----------------- Sidebar Edits ----------------- #
+# ==================================================
+# UI
+# ==================================================
+# REPLACE ONLY YOUR UI SECTION
+# (everything from st.title("Stock Dashboard") onward)
 
+st.title("Stock Dashboard")
+
+# ==================================================
+# SIDEBAR CONTROLS
+# ==================================================
 with st.sidebar:
-    st.header("Watchlist")
+    st.header("Manage Stocks")
 
-    new_ticker = st.text_input("Add Ticker")
+    new_ticker = st.text_input("Add Stock", placeholder="SBIN.NS / AAPL")
 
     if st.button("Add"):
-        value = new_ticker.strip().upper()
+        val = new_ticker.strip().upper()
+        if val and val not in st.session_state.tickers:
+            st.session_state.tickers.append(val)
+            st.cache_data.clear()
+            st.rerun()
 
-        if value:
-            if value not in st.session_state.tickers:
-                st.session_state.tickers.append(value)
-                save_tickers(st.session_state.tickers)
-                st.cache_data.clear()
-                st.rerun()
+    st.markdown("---")
 
-    remove_ticker = st.selectbox("Remove Ticker", [""] + st.session_state.tickers)
+    remove_ticker = st.selectbox(
+        "Remove Stock",
+        [""] + st.session_state.tickers
+    )
 
     if st.button("Remove"):
         if remove_ticker:
             st.session_state.tickers.remove(remove_ticker)
-            save_tickers(st.session_state.tickers)
             st.cache_data.clear()
             st.rerun()
 
-# ----------------- Main Page ----------------- #
+    st.markdown("---")
 
-st.title('Stock Dashboard')
+    if st.button("Refresh Data", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
 
-st.markdown("""
-<style>
-.leader-card{background:white;border:1px solid #e5e7eb;border-radius:16px;padding:20px;min-height:150px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:16px}
-.leader-label{font-size:16px;color:#64748b;margin-bottom:8px}
-.leader-ticker{font-size:34px;font-weight:700;color:#111827;line-height:1.2}
-.leader-green{font-size:20px;font-weight:700;color:#16a34a;margin-top:8px}
-.leader-red{font-size:20px;font-weight:700;color:#dc2626;margin-top:8px}
-</style>
-""", unsafe_allow_html=True)
+    st.markdown("### Current Watchlist")
+    for t in st.session_state.tickers:
+        st.write("•", t)
 
+# ==================================================
+# DATA
+# ==================================================
 df = load_data(tuple(st.session_state.tickers))
 
-# ----------------- Performance Dashboard ----------------- #
+num_cols = ["Price","52W High","52W Low","RSI","Day %","Month %","Year %"]
+for col in num_cols:
+    df[col] = pd.to_numeric(df[col], errors="coerce").round(2)
 
-if not df.empty:
-    st.subheader("Performance Leaders")
+# ==================================================
+# TOP CARDS
+# ==================================================
+day_gainer = df.loc[df["Day %"].idxmax()]
+day_loser = df.loc[df["Day %"].idxmin()]
+month_gainer = df.loc[df["Month %"].idxmax()]
+month_loser = df.loc[df["Month %"].idxmin()]
+year_gainer = df.loc[df["Year %"].idxmax()]
+year_loser = df.loc[df["Year %"].idxmin()]
 
-    valid = df.dropna(subset=["Day %", "Month %", "Year %"])
+st.subheader("Performance Leaders")
 
-    if valid.empty:
-        st.warning("No valid market data available.")
-        st.stop()
+c1, c2, c3 = st.columns(3)
 
-    dg = valid.loc[valid["Day %"].idxmax()]
-    dl = valid.loc[valid["Day %"].idxmin()]
-    mg = valid.loc[valid["Month %"].idxmax()]
-    ml = valid.loc[valid["Month %"].idxmin()]
-    yg = valid.loc[valid["Year %"].idxmax()]
-    yl = valid.loc[valid["Year %"].idxmin()]
+with c1:
+    st.metric("Day Gainer", f"{day_gainer['Ticker']}")
+    st.caption(f"{day_gainer['Day %']:.2f}%")
+    st.metric("Day Loser", f"{day_loser['Ticker']}")
+    st.caption(f"{day_loser['Day %']:.2f}%")
 
-    c1, c2, c3 = st.columns(3)
+with c2:
+    st.metric("Month Gainer", f"{month_gainer['Ticker']}")
+    st.caption(f"{month_gainer['Month %']:.2f}%")
+    st.metric("Month Loser", f"{month_loser['Ticker']}")
+    st.caption(f"{month_loser['Month %']:.2f}%")
 
-    with c1:
-        st.markdown(f"<div class='leader-card'><div class='leader-label'>Day Gainer</div><div class='leader-ticker'>{dg['Ticker']}</div><div class='leader-green'>{dg['Day %']:+.2f}%</div></div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='leader-card'><div class='leader-label'>Day Loser</div><div class='leader-ticker'>{dl['Ticker']}</div><div class='leader-red'>{dl['Day %']:+.2f}%</div></div>", unsafe_allow_html=True)
+with c3:
+    st.metric("Year Gainer", f"{year_gainer['Ticker']}")
+    st.caption(f"{year_gainer['Year %']:.2f}%")
+    st.metric("Year Loser", f"{year_loser['Ticker']}")
+    st.caption(f"{year_loser['Year %']:.2f}%")
 
-    with c2:
-        st.markdown(f"<div class='leader-card'><div class='leader-label'>Month Gainer</div><div class='leader-ticker'>{mg['Ticker']}</div><div class='leader-green'>{mg['Month %']:+.2f}%</div></div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='leader-card'><div class='leader-label'>Month Loser</div><div class='leader-ticker'>{ml['Ticker']}</div><div class='leader-red'>{ml['Month %']:+.2f}%</div></div>", unsafe_allow_html=True)
+# ==================================================
+# MAIN LAYOUT: TABLE + PIE
+# ==================================================
+# REPLACE ONLY THIS SECTION:
+# MAIN LAYOUT: TABLE + PIE
 
-    with c3:
-        st.markdown(f"<div class='leader-card'><div class='leader-label'>Year Gainer</div><div class='leader-ticker'>{yg['Ticker']}</div><div class='leader-green'>{yg['Year %']:+.2f}%</div></div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='leader-card'><div class='leader-label'>Year Loser</div><div class='leader-ticker'>{yl['Ticker']}</div><div class='leader-red'>{yl['Year %']:+.2f}%</div></div>", unsafe_allow_html=True)
-
-# ----------------- Portfolio Table ----------------- #
-    
-    st.subheader("Portfolio Table")
-
+# ==================================================
+# TABLE FULL WIDTH
+# ==================================================
 def color_signal(val):
-    if val in ["Bearish", "Death Cross", "Overbought"]:
-        return "color: red; font-weight: bold"
-    elif val in ["Bullish", "Golden Cross", "Oversold", "Underbought", "Positive"]:
-        return "color: green; font-weight: bold"
-    elif val == "Neutral":
-        return "color: gray; font-weight: bold"
-    return ""
+    if val in ["Overbought", "Bearish", "Death Cross"]:
+        return "color:red; font-weight:bold"
+    elif val in ["Underbought", "Bullish", "Golden Cross", "Oversold"]:
+        return "color:green; font-weight:bold"
+    return "color:gray; font-weight:bold"
 
-def color_pct(val):
-    try:
-        return "color: green; font-weight: bold" if float(val) >= 0 else "color: red; font-weight: bold"
-    except:
-        return ""
+styled = df.style.map(
+    color_signal,
+    subset=["Bollinger Bands", "Momentum Score", "MA Cross"]
+).format({
+    "Price": "{:.2f}",
+    "52W High": "{:.2f}",
+    "52W Low": "{:.2f}",
+    "RSI": "{:.2f}",
+    "Day %": "{:.2f}",
+    "Month %": "{:.2f}",
+    "Year %": "{:.2f}"
+})
 
-tab1, tab2, tab3 = st.tabs(["Overview", "Technicals", "Performance"])
+st.subheader("Portfolio Table")
+st.dataframe(styled, use_container_width=True, hide_index=True, height=450)
 
-with tab1:
-    overview = df[["Ticker", "Company Name", "Sector", "Price", "52W High", "52W Low"]]
-    st.dataframe(overview, use_container_width=True, hide_index=True)
+# ==================================================
+# BELOW TABLE: PIE + CORRELATION HEATMAP
+# ==================================================
+left, right = st.columns(2)
 
-with tab2:
-    technicals = df[["Ticker", "RSI", "Bollinger Bands", "MA Cross", "Momentum Score"]]
+# ---------------- PIE CHART ----------------
+with left:
+    st.subheader("Sector Concentration")
 
-    styled_tech = (
-        technicals.style
-        .map(color_signal, subset=["Bollinger Bands", "MA Cross", "Momentum Score"])
+    sector_df = df.groupby("Sector").size().reset_index(name="Count")
+
+    fig_pie = px.pie(
+        sector_df,
+        names="Sector",
+        values="Count",
+        hole=0.45
     )
 
-    st.dataframe(styled_tech, use_container_width=True, hide_index=True, height=500)
-
-with tab3:
-    perf = df[["Ticker", "Day %", "Month %", "Year %"]]
-
-    styled_perf = (
-        perf.style
-        .map(color_pct, subset=["Day %", "Month %", "Year %"])
+    fig_pie.update_layout(
+        height=420,
+        margin=dict(l=10, r=10, t=40, b=10)
     )
 
-    st.dataframe(styled_perf, use_container_width=True, hide_index=True, height=500)
+    st.plotly_chart(fig_pie, use_container_width=True)
+
+# ---------------- CORRELATION HEATMAP ----------------
+with right:
+    st.subheader("Correlation Heatmap")
+
+    price_data = pd.DataFrame()
+
+    for ticker in st.session_state.tickers:
+        try:
+            temp = yf.Ticker(ticker).history(period="6mo")["Close"]
+            price_data[ticker] = temp
+        except:
+            pass
+
+    if not price_data.empty and price_data.shape[1] > 1:
+        corr = price_data.pct_change().dropna().corr()
+
+        fig_heat = px.imshow(
+            corr,
+            text_auto=".2f",
+            aspect="auto",
+            color_continuous_scale="RdYlGn",
+            zmin=-1,
+            zmax=1
+        )
+
+        fig_heat.update_layout(
+            height=420,
+            margin=dict(l=10, r=10, t=40, b=10)
+        )
+
+        st.plotly_chart(fig_heat, use_container_width=True)
+    else:
+        st.info("Need at least 2 valid stocks for heatmap.")
+
+# ==================================================
+# FORMULA GUIDE
+# ==================================================
+st.markdown("---")
+st.subheader("How Signals Are Decided")
+
+st.markdown("""
+### Bollinger Bands
+- Upper Band = 20DMA + 2σ
+- Lower Band = 20DMA - 2σ
+- Overbought: Above upper band
+- Oversold: Below lower band
+- Underbought: Bottom 20% of band range
+
+### Momentum Score
+Weighted Returns:
+- 1M = 50%
+- 3M = 30%
+- 6M = 20%
+
+Labels:
+- Overbought ≥ 20
+- Bullish 10 to 20
+- Positive 3 to 10
+- Neutral -3 to 3
+- Underbought -10 to -3
+- Bearish < -10
+
+### MA Cross
+- Golden Cross = 50DMA > 200DMA
+- Death Cross = 50DMA < 200DMA
+""")
