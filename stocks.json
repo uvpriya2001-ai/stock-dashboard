@@ -1,2 +1,3 @@
-SBI.NS
-ICICIGI.NS
+{
+  "tickers": ["RELIANCE.NS", "TCS.NS"]
+}
