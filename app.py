@@ -114,9 +114,9 @@ if not df.empty:
         st.markdown(f"<div class='leader-card'><div class='leader-label'>Month Loser</div><div class='leader-ticker'>{ml['Ticker']}</div><div class='leader-red'>{ml['Month %']:+.2f}%</div></div>", unsafe_allow_html=True)
 
     with c3:
-        st.markdown(f"<div class='leader-card'><div class='leader-label'>Year Gainer</div><div class='leader-ticker'>{yg['Ticker']}</div><div class='leader-green'>{yg['Year %']:+.2f}%</div></div>", unsafe_allow_html=True)
-        st.markdown(f"<div class='leader-card'><div class='leader-label'>Year Loser</div><div class='leader-ticker'>{yl['Ticker']}</div><div class='leader-red'>{yl['Year %']:+.2f}%</div></div>", unsafe_allow_html=True), 'Ticker'], f"{df['Year %'].max():.2f}%")
-
+    st.markdown(f"<div class='leader-card'><div class='leader-label'>Year Gainer</div><div class='leader-ticker'>{yg['Ticker']}</div><div class='leader-green'>{yg['Year %']:+.2f}%</div></div>", unsafe_allow_html=True)
+    st.markdown(f"<div class='leader-card'><div class='leader-label'>Year Loser</div><div class='leader-ticker'>{yl['Ticker']}</div><div class='leader-red'>{yl['Year %']:+.2f}%</div></div>", unsafe_allow_html=True)
+    
     st.subheader('Portfolio Table')
     st.dataframe(df, use_container_width=True, hide_index=True)
 
