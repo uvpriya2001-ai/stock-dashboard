@@ -26,14 +26,14 @@ def load_tickers():
             pass
     return DEFAULT_TICKERS.copy()
 
-# ---------------- Defining Indicators ----------------- #
-
 def save_tickers(tickers):
     with open(WATCHLIST_FILE, "w") as f:
         json.dump({"tickers": tickers}, f, indent=4)
 
 if "tickers" not in st.session_state:
     st.session_state.tickers = load_tickers()
+
+# ---------------- Defining Indicators ----------------- #
 
 def rsi(series, period=14):
     delta = series.diff()
@@ -112,7 +112,10 @@ def load_data(tickers):
                 "Day %": round(day_ret, 2),
                 "Month %": round(month_ret, 2) if month_ret is not None else None,
                 "Year %": round(year_ret, 2),
-                
+                "Bollinger Bands": bollinger_label(close),
+                "MA Cross": ma_cross(close),
+                "Momentum Score": momentum_label(close),
+                "RSI": round(rsi(close).iloc[-1], 2)   
             })
         except:
             continue
@@ -122,26 +125,39 @@ def load_data(tickers):
 # ---------------- Sidebar ----------------- #
 
 with st.sidebar:
-    st.header("Watchlist")
+    st.header("Manage Stocks")
 
-    new_ticker = st.text_input("Add Ticker")
+    new_ticker = st.text_input("Add Stock", placeholder="SBIN.NS / AAPL")
 
     if st.button("Add"):
-        t = new_ticker.strip().upper()
-        if t and t not in st.session_state.tickers:
-            st.session_state.tickers.append(t)
-            save_tickers(st.session_state.tickers)
+        val = new_ticker.strip().upper()
+        if val and val not in st.session_state.tickers:
+            st.session_state.tickers.append(val)
             st.cache_data.clear()
             st.rerun()
 
-    remove_ticker = st.selectbox("Remove Ticker", [""] + st.session_state.tickers)
+    st.markdown("---")
+
+    remove_ticker = st.selectbox(
+        "Remove Stock",
+        [""] + st.session_state.tickers
+    )
 
     if st.button("Remove"):
         if remove_ticker:
             st.session_state.tickers.remove(remove_ticker)
-            save_tickers(st.session_state.tickers)
             st.cache_data.clear()
             st.rerun()
+
+    st.markdown("---")
+
+    if st.button("Refresh Data", use_container_width=True):
+        st.cache_data.clear()
+        st.rerun()
+
+    st.markdown("### Current Watchlist")
+    for t in st.session_state.tickers:
+        st.write("•", t)
 
 # ---------------- Top Gainers Card ----------------- #
 
