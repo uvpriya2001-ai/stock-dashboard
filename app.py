@@ -104,20 +104,39 @@ def momentum_label(close):
 # ---------------- Market Data ----------------- #
 @st.cache_data(ttl=600)
 def market_data():
+    def last_two_values(symbol):
+        df = yf.download(symbol, period="5d", progress=False, auto_adjust=True)
+
+        if df.empty:
+            return 0.0, 0.0
+
+        close = df["Close"]
+
+        # If DataFrame, convert to first column
+        if isinstance(close, pd.DataFrame):
+            close = close.iloc[:, 0]
+
+        close = close.dropna()
+
+        if close.empty:
+            return 0.0, 0.0
+
+        last_val = float(close.iloc[-1])
+
+        if len(close) > 1:
+            ret = ((close.iloc[-1] / close.iloc[-2]) - 1) * 100
+            ret = float(ret)
+        else:
+            ret = 0.0
+
+        return round(last_val, 2), round(ret, 2)
+
     try:
-        nifty = yf.download("^NSEI", period="5d", progress=False)["Close"].dropna()
-        vix = yf.download("^INDIAVIX", period="5d", progress=False)["Close"].dropna()
-
-        nifty_val = nifty.iloc[-1]
-        nifty_ret = (nifty.iloc[-1] / nifty.iloc[-2] - 1) * 100 if len(nifty) > 1 else 0
-
-        vix_val = vix.iloc[-1]
-        vix_ret = (vix.iloc[-1] / vix.iloc[-2] - 1) * 100 if len(vix) > 1 else 0
-
-        return round(nifty_val,2), round(nifty_ret,2), round(vix_val,2), round(vix_ret,2)
+        nifty_val, nifty_ret = last_two_values("^NSEI")
+        vix_val, vix_ret = last_two_values("^INDIAVIX")
+        return nifty_val, nifty_ret, vix_val, vix_ret
     except:
-        return 0,0,0,0
-
+        return 0.0, 0.0, 0.0, 0.0
 # ---------------- Load Data ----------------- #
 @st.cache_data(ttl=600)
 def load_data(tickers):
