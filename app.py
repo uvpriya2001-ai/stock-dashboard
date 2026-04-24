@@ -105,6 +105,17 @@ def momentum_label(close):
 # ---------------- Load Data ----------------- #
 
 @st.cache_data(ttl=600)
+
+def market_data():
+    nifty = yf.Ticker("^NSEI").history(period="5d")
+    vix = yf.Ticker("^INDIAVIX").history(period="5d")
+
+    nifty_ret = (nifty["Close"].iloc[-1] / nifty["Close"].iloc[-2] - 1) * 100
+    vix_val = vix["Close"].iloc[-1]
+    vix_ret = (vix["Close"].iloc[-1] / vix["Close"].iloc[-2] - 1) * 100
+
+    return round(nifty_ret,2), round(vix_val,2), round(vix_ret,2)
+    
 def load_data(tickers):
     rows = []
     price_map = {}
@@ -138,6 +149,7 @@ def load_data(tickers):
                 "MA Cross": ma_cross(close),
                 "Momentum Score": momentum_label(close),
                 "RSI": rsi(close)
+                "Drawdown %": round((close.iloc[-1] / close.max() - 1) * 100, 2)
             })
 
         except Exception:
@@ -180,16 +192,19 @@ with st.sidebar:
 st.title("Stock Dashboard")
 
 df, price_map = load_data(tuple(st.session_state.tickers))
+nifty_ret, vix_val, vix_ret = market_data()
 
 if df.empty:
     st.warning("No valid data found.")
     st.stop()
 
-c1, c2, c3 = st.columns(3)
+c1, c2, c3, c4, c5 = st.columns(5)
 
 c1.metric("Top Day Gainer", df.loc[df["Day %"].idxmax(), "Ticker"], f'{df["Day %"].max():.2f}%')
 c2.metric("Top Month Gainer", df.loc[df["Month %"].fillna(-9999).idxmax(), "Ticker"], f'{df["Month %"].max():.2f}%')
 c3.metric("Top Year Gainer", df.loc[df["Year %"].idxmax(), "Ticker"], f'{df["Year %"].max():.2f}%')
+c4.metric("Nifty 50", f"{nifty_ret:.2f}%")
+c5.metric("India VIX", f"{vix_val:.2f}", f"{vix_ret:.2f}%")
 
 # ---------------- Table ----------------- #
 
@@ -200,6 +215,17 @@ def color_signal(val):
         return "color:green;font-weight:bold"
     return "color:darkgrey;font-weight:bold"
 
+# For Ranking stocks to buy
+
+df["Buy Score"] = (
+    (-df["Drawdown %"]) * 0.4 +
+    df["Month %"].fillna(0) * 0.2 +
+    df["Year %"].fillna(0) * 0.2 +
+    (df["MA Cross"] == "Golden Cross").astype(int) * 10 +
+    (df["Momentum Score"].isin(["Bullish", "Positive"])).astype(int) * 8
+)
+
+df = df.sort_values("Buy Score", ascending=False)
 display_df = df[
     [
         "Ticker",
@@ -210,7 +236,8 @@ display_df = df[
         "RSI",
         "Bollinger Bands",
         "MA Cross",
-        "Momentum Score"
+        "Momentum Score",
+        "Drawdown %"
     ]
 ]
 
@@ -231,8 +258,25 @@ styled = (
     .map(color_signal, subset=["RSI", "Bollinger Bands", "MA Cross", "Momentum Score"])
 )
 
-st.subheader("Portfolio Table")
+st.subheader("Watchlist Table")
 st.dataframe(styled, use_container_width=True, hide_index=True)
+st.markdown("""
+<style>
+div[data-testid="stDataFrame"] thead th {
+    font-weight: 700 !important;
+    font-size: 15px !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
+csv = df.to_csv(index=False).encode("utf-8")
+
+st.download_button(
+    "Download CSV",
+    data=csv,
+    file_name="stock_dashboard.csv",
+    mime="text/csv"
+)
 
 # ---------------- Charts ----------------- #
 
