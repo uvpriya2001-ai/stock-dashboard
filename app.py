@@ -11,7 +11,9 @@ import os
 
 WATCHLIST_FILE = "stocks.json"
 DEFAULT_TICKERS = ["IREDA.NS", "BEL.NS"]
-   
+
+st.set_page_config(layout="wide")
+
 def load_tickers():
     try:
         if os.path.exists(WATCHLIST_FILE):
@@ -39,30 +41,114 @@ def save_tickers(tickers):
     except:
         pass
 
-# ----------------- Cache Data ----------------- #
+
+# ----------------- Important Technical Indicators ----------------- #
+
+def rsi(series, period=14):
+    delta = series.diff()
+    gain = delta.clip(lower=0).rolling(period).mean()
+    loss = (-delta.clip(upper=0)).rolling(period).mean()
+    rs = gain / loss
+    return 100 - (100 / (1 + rs))
+
+def bollinger_label(close):
+    ma = close.rolling(20).mean().iloc[-1]
+    sd = close.rolling(20).std().iloc[-1]
+    upper = ma + 2 * sd
+    lower = ma - 2 * sd
+    last = close.iloc[-1]
+    zone = (upper - lower) * 0.20
+
+    if last >= upper:
+        return "Overbought"
+    elif last <= lower:
+        return "Oversold"
+    elif last <= lower + zone:
+        return "Underbought"
+    return "Neutral"
+
+def ma_cross(close):
+    if len(close) < 200:
+        return "NA"
+
+    ma50 = close.tail(50).mean()
+    ma200 = close.tail(200).mean()
+
+    return "Golden Cross" if ma50 > ma200 else "Death Cross"
+
+def momentum_label(close):
+    if len(close) < 126:
+        return "NA"
+
+    r1 = (close.iloc[-1] / close.iloc[-21] - 1) * 100
+    r3 = (close.iloc[-1] / close.iloc[-63] - 1) * 100
+    r6 = (close.iloc[-1] / close.iloc[-126] - 1) * 100
+    score = 0.5*r1 + 0.3*r3 + 0.2*r6
+
+    if score >= 20:
+        return "Overbought"
+    elif score >= 10:
+        return "Bullish"
+    elif score >= 3:
+        return "Positive"
+    elif score > -3:
+        return "Neutral"
+    elif score > -10:
+        return "Underbought"
+    return "Bearish"
+
+
+# ----------------- Load the Stock Data ----------------- #
 
 @st.cache_data(ttl=900)
 def load_data(tickers):
     rows = []
+
     for ticker in tickers:
         try:
             stock = yf.Ticker(ticker)
-            hist = stock.history(period='1y')
+            hist = stock.history(period="1y")
             info = stock.info
-            close = hist['Close']
+            close = hist["Close"]
+
+            price = close.iloc[-1]
+            day_ret = ((close.iloc[-1] / close.iloc[-2]) - 1) * 100
+            month_ret = ((close.iloc[-1] / close.iloc[-21]) - 1) * 100
+            year_ret = ((close.iloc[-1] / close.iloc[0]) - 1) * 100
+
             rows.append({
-                'Ticker': ticker,
-                'Company': info.get('longName', ticker),
-                'Sector': info.get('sector', 'N/A'),
-                'Price': round(close.iloc[-1], 2),
-                'Day %': round((close.iloc[-1]/close.iloc[-2]-1)*100, 2),
-                'Month %': round((close.iloc[-1]/close.iloc[-21]-1)*100, 2),
-                'Year %': round((close.iloc[-1]/close.iloc[0]-1)*100, 2),
-                '52W High': round(close.max(), 2),
-                '52W Low': round(close.min(), 2)
+                "Ticker": ticker,
+                "Company Name": info.get("longName", ticker),
+                "Sector": info.get("sector", "N/A"),
+                "Price": round(price, 2),
+                "52W High": round(close.max(), 2),
+                "52W Low": round(close.min(), 2),
+                "RSI": round(rsi(close).iloc[-1], 2),
+                "Bollinger Bands": bollinger_label(close),
+                "MA Cross": ma_cross(close),
+                "Momentum Score": momentum_label(close),
+                "Day %": round(day_ret, 2),
+                "Month %": round(month_ret, 2),
+                "Year %": round(year_ret, 2)
             })
+
         except:
-            pass
+            rows.append({
+                "Ticker": ticker,
+                "Company Name": "Error",
+                "Sector": "",
+                "Price": np.nan,
+                "52W High": np.nan,
+                "52W Low": np.nan,
+                "RSI": np.nan,
+                "Bollinger Bands": "",
+                "MA Cross": "",
+                "Momentum Score": "",
+                "Day %": np.nan,
+                "Month %": np.nan,
+                "Year %": np.nan
+            })
+
     return pd.DataFrame(rows)
 
 # ----------------- Sidebar Edits ----------------- #
@@ -90,6 +176,7 @@ with st.sidebar:
             save_tickers(st.session_state.tickers)
             st.cache_data.clear()
             st.rerun()
+
 # ----------------- Main Page ----------------- #
 
 st.title('Stock Dashboard')
