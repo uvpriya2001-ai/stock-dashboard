@@ -211,15 +211,18 @@ if not df.empty:
 
     valid_d = df[df["Day %"].notna()]
     valid_m = df[df["Month %"].notna()]
-    valid_y = df[df["Year %"].notna()]
+    valid_y = df[df["Year %"].notna()]]
 
     if valid_d.empty:
         st.warning("No valid market data available.")
-    else:
+        st.stop()
+
         dg = valid_d.loc[valid_d["Day %"].idxmax()]
         dl = valid_d.loc[valid_d["Day %"].idxmin()]
+        
         mg = valid_m.loc[valid_m["Month %"].idxmax()] if not valid_m.empty else dg
         ml = valid_m.loc[valid_m["Month %"].idxmin()] if not valid_m.empty else dl
+        
         yg = valid_y.loc[valid_y["Year %"].idxmax()] if not valid_y.empty else dg
         yl = valid_y.loc[valid_y["Year %"].idxmin()] if not valid_y.empty else dl
 
