@@ -214,14 +214,21 @@ display_df = df[
     ]
 ]
 
-styled = display_df.style.format({
-    "Price": "{:.2f}",
-    "Day %": "{:.2f}",
-    "Month %": "{:.2f}",
-    "Year %": "{:.2f}"
-}).map(
-    color_signal,
-    subset=["RSI", "Bollinger Bands", "MA Cross", "Momentum Score"]
+styled = (
+    display_df.style
+    .set_table_styles([
+        {
+            "selector": "th",
+            "props": [("font-weight", "bold"), ("font-size", "14px")]
+        }
+    ])
+    .format({
+        "Price": "{:.2f}",
+        "Day %": "{:.2f}",
+        "Month %": "{:.2f}",
+        "Year %": "{:.2f}"
+    })
+    .map(color_signal, subset=["RSI", "Bollinger Bands", "MA Cross", "Momentum Score"])
 )
 
 st.subheader("Portfolio Table")
@@ -248,7 +255,7 @@ with right:
             corr,
             text_auto=".2f",
             aspect="auto",
-            color_continuous_scale="GnYlRd",
+            color_continuous_scale="RdYlGn_r",
             zmin=-1,
             zmax=1
         )
