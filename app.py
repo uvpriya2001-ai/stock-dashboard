@@ -5,33 +5,37 @@ import plotly.express as px
 import json
 import os
 
-st.set_page_config(page_title='Stock Dashboard', layout='wide')
+# ----------------- Loading the watchlist ----------------- #
 
-WATCHLIST_FILE = 'tickers.json'
-DEFAULT_TICKERS = ['IREDA.NS','BEL.NS','AFFLE.NS','HAVELLS.NS','POLYCAB.NS']
-
+WATCHLIST_FILE = "stocks.json"
+DEFAULT_TICKERS = ["IREDA.NS", "BEL.NS"]
 
 def load_tickers():
-    if os.path.exists(WATCHLIST_FILE):
-        try:
-            with open(WATCHLIST_FILE, 'r') as f:
+    try:
+        if os.path.exists(WATCHLIST_FILE):
+            with open(WATCHLIST_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                return data.get('tickers', DEFAULT_TICKERS)
-        except:
-            return DEFAULT_TICKERS.copy()
-    else:
-        save_tickers(DEFAULT_TICKERS)
-        return DEFAULT_TICKERS.copy()
+
+            if isinstance(data, dict) and "tickers" in data:
+                if isinstance(data["tickers"], list):
+                    return [str(x).upper().strip() for x in data["tickers"] if str(x).strip()]
+
+            if isinstance(data, list):
+                return [str(x).upper().strip() for x in data if str(x).strip()]
+    except:
+        pass
+
+    return DEFAULT_TICKERS.copy()
 
 
 def save_tickers(tickers):
-    with open(WATCHLIST_FILE, 'w') as f:
-        json.dump({'tickers': tickers}, f, indent=4)
+    try:
+        with open(WATCHLIST_FILE, "w", encoding="utf-8") as f:
+            json.dump({"tickers": tickers}, f, indent=4)
+    except:
+        pass
 
-
-if 'tickers' not in st.session_state:
-    st.session_state.tickers = load_tickers()
-
+# ----------------- Cache Data ----------------- #
 
 @st.cache_data(ttl=900)
 def load_data(tickers):
@@ -57,14 +61,16 @@ def load_data(tickers):
             pass
     return pd.DataFrame(rows)
 
+# ----------------- Sidebar Edits ----------------- #
 
 with st.sidebar:
     st.header('Watchlist')
 
-    new_ticker = st.text_input('Add Ticker')
-    if st.button('Add'):
-        value = new_ticker.strip().upper()
-        if value and value not in st.session_state.tickers:
+    new_ticker = st.text_input("Add Ticker")
+    if st.button("Add"):
+    value = new_ticker.strip().upper()
+    if value:
+        if value not in st.session_state.tickers:
             st.session_state.tickers.append(value)
             save_tickers(st.session_state.tickers)
             st.cache_data.clear()
@@ -77,6 +83,8 @@ with st.sidebar:
             save_tickers(st.session_state.tickers)
             st.cache_data.clear()
             st.rerun()
+
+# ----------------- Main Page ----------------- #
 
 st.title('Stock Dashboard')
 
@@ -91,6 +99,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 df = load_data(tuple(st.session_state.tickers))
+
+# ----------------- Performance Dashboard ----------------- #
 
 if not df.empty:
     c1, c2, c3 = st.columns(3)
