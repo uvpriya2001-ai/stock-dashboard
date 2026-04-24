@@ -6,6 +6,7 @@ import yfinance as yf
 import plotly.express as px
 import json
 import os
+import numpy as np
 
 # ----------------- Loading the watchlist ----------------- #
 
