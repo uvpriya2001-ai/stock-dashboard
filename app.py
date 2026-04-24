@@ -177,6 +177,15 @@ def load_data(tickers):
             high = float(close.max())
             low = float(close.min())
 
+            
+            # Sector fetch
+            sector = "Unknown"
+            try:
+                info = yf.Ticker(ticker).info
+                sector = info.get("sector", "Unknown")
+            except:
+                pass
+
             price_map[ticker] = close
 
             rows.append({
