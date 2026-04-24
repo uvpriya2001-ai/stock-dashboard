@@ -69,7 +69,7 @@ with st.sidebar:
     new_ticker = st.text_input("Add Ticker")
 
     if st.button("Add"):
-        value = new_ticker.strip().upper()
+    value = new_ticker.strip().upper()
 
     if value:
         if value not in st.session_state.tickers:
