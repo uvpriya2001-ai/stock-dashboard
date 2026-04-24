@@ -2,119 +2,135 @@ import streamlit as st
 import pandas as pd
 import yfinance as yf
 import plotly.express as px
-import numpy as np
+import json
+import os
 
-st.set_page_config(page_title='Family Stock Dashboard', layout='wide', page_icon='📈')
+st.set_page_config(page_title='Stock Dashboard', layout='wide')
 
-PASSWORD='family2025'
-DEFAULT_TICKERS=['IREDA.NS','BEL.NS','AFFLE.NS','HAVELLS.NS','POLYCAB.NS','BAJAJ-AUTO.NS']
+WATCHLIST_FILE = 'tickers.json'
+DEFAULT_TICKERS = ['IREDA.NS','BEL.NS','AFFLE.NS','HAVELLS.NS','POLYCAB.NS']
 
-if 'authenticated' not in st.session_state:
-    st.session_state.authenticated=False
+
+def load_tickers():
+    if os.path.exists(WATCHLIST_FILE):
+        try:
+            with open(WATCHLIST_FILE, 'r') as f:
+                data = json.load(f)
+                return data.get('tickers', DEFAULT_TICKERS)
+        except:
+            return DEFAULT_TICKERS.copy()
+    else:
+        save_tickers(DEFAULT_TICKERS)
+        return DEFAULT_TICKERS.copy()
+
+
+def save_tickers(tickers):
+    with open(WATCHLIST_FILE, 'w') as f:
+        json.dump({'tickers': tickers}, f, indent=4)
+
+
 if 'tickers' not in st.session_state:
-    st.session_state.tickers=DEFAULT_TICKERS.copy()
+    st.session_state.tickers = load_tickers()
 
-# Login
-if not st.session_state.authenticated:
-    st.markdown("""
-    <style>
-    .stApp{background:#070d1a;color:#e2e8f0}
-    .login{max-width:420px;margin:12vh auto;padding:2rem;background:#0f172a;border:1px solid #1e293b;border-radius:16px}
-    </style>
-    <div class='login'><h1>📈 Stock Dashboard</h1><p>Enter password</p></div>
-    """, unsafe_allow_html=True)
-    pwd=st.text_input('Password', type='password')
-    if st.button('Login', use_container_width=True):
-        if pwd==PASSWORD:
-            st.session_state.authenticated=True
-            st.rerun()
-        else:
-            st.error('Incorrect password')
-    st.stop()
-
-# CSS
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
-html,body,.stApp{font-family:'DM Sans',sans-serif;background:#070d1a;color:#e2e8f0}
-h1,h2,h3{color:#e2e8f0 !important}
-section[data-testid='stSidebar']{background:#0f172a}
-.metric-card{background:#0d1829;border:1px solid #1a2744;border-radius:12px;padding:1rem;margin-bottom:.75rem}
-.small{color:#94a3b8;font-size:.8rem}
-.green{color:#22c55e;font-weight:700}.red{color:#ef4444;font-weight:700}
-</style>
-""", unsafe_allow_html=True)
 
 @st.cache_data(ttl=900)
 def load_data(tickers):
-    rows=[]
-    for t in tickers:
+    rows = []
+    for ticker in tickers:
         try:
-            h=yf.Ticker(t).history(period='1y')
-            info=yf.Ticker(t).info
-            c=h['Close']
+            stock = yf.Ticker(ticker)
+            hist = stock.history(period='1y')
+            info = stock.info
+            close = hist['Close']
             rows.append({
-                'Ticker':t,
-                'Company':info.get('longName',t),
-                'Sector':info.get('sector','N/A'),
-                'Price':round(c.iloc[-1],2),
-                'Day %':round((c.iloc[-1]/c.iloc[-2]-1)*100,2),
-                'Month %':round((c.iloc[-1]/c.iloc[-21]-1)*100,2),
-                'Year %':round((c.iloc[-1]/c.iloc[0]-1)*100,2),
-                '52W High':round(c.max(),2),
-                '52W Low':round(c.min(),2),
+                'Ticker': ticker,
+                'Company': info.get('longName', ticker),
+                'Sector': info.get('sector', 'N/A'),
+                'Price': round(close.iloc[-1], 2),
+                'Day %': round((close.iloc[-1]/close.iloc[-2]-1)*100, 2),
+                'Month %': round((close.iloc[-1]/close.iloc[-21]-1)*100, 2),
+                'Year %': round((close.iloc[-1]/close.iloc[0]-1)*100, 2),
+                '52W High': round(close.max(), 2),
+                '52W Low': round(close.min(), 2)
             })
         except:
             pass
     return pd.DataFrame(rows)
 
-with st.sidebar:
-    page=st.radio('Navigation',['Technical'])
-    new_ticker=st.text_input('Add Ticker')
-    if st.button('Add', use_container_width=True):
-        v=new_ticker.strip().upper()
-        if v and v not in st.session_state.tickers:
-            st.session_state.tickers.append(v)
-            st.cache_data.clear(); st.rerun()
-    rem=st.selectbox('Remove Ticker',['']+st.session_state.tickers)
-    if st.button('Remove', use_container_width=True):
-        if rem:
-            st.session_state.tickers.remove(rem)
-            st.cache_data.clear(); st.rerun()
-    if st.button('Refresh Data', use_container_width=True):
-        st.cache_data.clear(); st.rerun()
-    if st.button('Reset Defaults', use_container_width=True):
-        st.session_state.tickers=DEFAULT_TICKERS.copy(); st.cache_data.clear(); st.rerun()
-    if st.button('Logout', use_container_width=True):
-        st.session_state.authenticated=False; st.rerun()
 
-st.title('📈 Technical Dashboard')
-df=load_data(tuple(st.session_state.tickers))
+with st.sidebar:
+    st.header('Watchlist')
+
+    new_ticker = st.text_input('Add Ticker')
+    if st.button('Add'):
+        value = new_ticker.strip().upper()
+        if value and value not in st.session_state.tickers:
+            st.session_state.tickers.append(value)
+            save_tickers(st.session_state.tickers)
+            st.cache_data.clear()
+            st.rerun()
+
+    remove_ticker = st.selectbox('Remove Ticker', [''] + st.session_state.tickers)
+    if st.button('Remove'):
+        if remove_ticker:
+            st.session_state.tickers.remove(remove_ticker)
+            save_tickers(st.session_state.tickers)
+            st.cache_data.clear()
+            st.rerun()
+
+st.title('Stock Dashboard')
+
+st.markdown("""
+<style>
+.leader-card{background:white;border:1px solid #e5e7eb;border-radius:16px;padding:20px;min-height:150px;box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:16px}
+.leader-label{font-size:16px;color:#64748b;margin-bottom:8px}
+.leader-ticker{font-size:34px;font-weight:700;color:#111827;line-height:1.2}
+.leader-green{font-size:20px;font-weight:700;color:#16a34a;margin-top:8px}
+.leader-red{font-size:20px;font-weight:700;color:#dc2626;margin-top:8px}
+</style>
+""", unsafe_allow_html=True)
+
+df = load_data(tuple(st.session_state.tickers))
 
 if not df.empty:
+    c1, c2, c3 = st.columns(3)
     st.subheader('Performance Leaders')
-    c1,c2,c3=st.columns(3)
-    metrics=[('Day %','Day'),('Month %','Month'),('Year %','Year')]
-    for col_obj,(metric,label) in zip([c1,c2,c3],metrics):
-        g=df.loc[df[metric].idxmax()]
-        l=df.loc[df[metric].idxmin()]
-        with col_obj:
-            st.markdown(f"<div class='metric-card'><div class='small'>{label} Gainer</div><b>{g['Ticker']}</b><div class='green'>{g[metric]:+.2f}%</div></div>", unsafe_allow_html=True)
-            st.markdown(f"<div class='metric-card'><div class='small'>{label} Loser</div><b>{l['Ticker']}</b><div class='red'>{l[metric]:+.2f}%</div></div>", unsafe_allow_html=True)
+
+    dg = df.loc[df['Day %'].idxmax()]
+    dl = df.loc[df['Day %'].idxmin()]
+    mg = df.loc[df['Month %'].idxmax()]
+    ml = df.loc[df['Month %'].idxmin()]
+    yg = df.loc[df['Year %'].idxmax()]
+    yl = df.loc[df['Year %'].idxmin()]
+
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+        st.markdown(f"<div class='leader-card'><div class='leader-label'>Day Gainer</div><div class='leader-ticker'>{dg['Ticker']}</div><div class='leader-green'>{dg['Day %']:+.2f}%</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='leader-card'><div class='leader-label'>Day Loser</div><div class='leader-ticker'>{dl['Ticker']}</div><div class='leader-red'>{dl['Day %']:+.2f}%</div></div>", unsafe_allow_html=True)
+
+    with c2:
+        st.markdown(f"<div class='leader-card'><div class='leader-label'>Month Gainer</div><div class='leader-ticker'>{mg['Ticker']}</div><div class='leader-green'>{mg['Month %']:+.2f}%</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='leader-card'><div class='leader-label'>Month Loser</div><div class='leader-ticker'>{ml['Ticker']}</div><div class='leader-red'>{ml['Month %']:+.2f}%</div></div>", unsafe_allow_html=True)
+
+    with c3:
+        st.markdown(f"<div class='leader-card'><div class='leader-label'>Year Gainer</div><div class='leader-ticker'>{yg['Ticker']}</div><div class='leader-green'>{yg['Year %']:+.2f}%</div></div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='leader-card'><div class='leader-label'>Year Loser</div><div class='leader-ticker'>{yl['Ticker']}</div><div class='leader-red'>{yl['Year %']:+.2f}%</div></div>", unsafe_allow_html=True), 'Ticker'], f"{df['Year %'].max():.2f}%")
 
     st.subheader('Portfolio Table')
-    st.dataframe(df, use_container_width=True, hide_index=True, height=420)
+    st.dataframe(df, use_container_width=True, hide_index=True)
 
-    a,b=st.columns(2)
-    with a:
-        st.subheader('Sector Concentration')
-        s=df.groupby('Sector').size().reset_index(name='Count')
-        fig=px.pie(s, names='Sector', values='Count', hole=.45)
-        fig.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color='#e2e8f0')
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.subheader('Sector Allocation')
+        sector_df = df.groupby('Sector').size().reset_index(name='Count')
+        fig = px.pie(sector_df, names='Sector', values='Count')
         st.plotly_chart(fig, use_container_width=True)
-    with b:
-        st.subheader('Returns Snapshot')
-        chart=df[['Ticker','Day %','Month %','Year %']].set_index('Ticker')
-        st.bar_chart(chart)
+
+    with col2:
+        st.subheader('Returns Comparison')
+        chart_df = df[['Ticker','Day %','Month %','Year %']].set_index('Ticker')
+        st.bar_chart(chart_df)
 else:
-    st.warning('No valid tickers loaded.')
+    st.warning('No data available.')
