@@ -64,28 +64,28 @@ def load_data(tickers):
 # ----------------- Sidebar Edits ----------------- #
 
 with st.sidebar:
-    st.header('Watchlist')
+    st.header("Watchlist")
 
     new_ticker = st.text_input("Add Ticker")
 
     if st.button("Add"):
         value = new_ticker.strip().upper()
 
-    if value:
-        if value not in st.session_state.tickers:
-            st.session_state.tickers.append(value)
-            st.cache_data.clear()
-            st.rerun()
+        if value:
+            if value not in st.session_state.tickers:
+                st.session_state.tickers.append(value)
+                save_tickers(st.session_state.tickers)
+                st.cache_data.clear()
+                st.rerun()
 
-    remove_ticker = st.selectbox('Remove Ticker', [''] + st.session_state.tickers)
-    
-    if st.button('Remove'):
+    remove_ticker = st.selectbox("Remove Ticker", [""] + st.session_state.tickers)
+
+    if st.button("Remove"):
         if remove_ticker:
             st.session_state.tickers.remove(remove_ticker)
             save_tickers(st.session_state.tickers)
             st.cache_data.clear()
             st.rerun()
-
 # ----------------- Main Page ----------------- #
 
 st.title('Stock Dashboard')
