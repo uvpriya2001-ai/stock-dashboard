@@ -1,3 +1,5 @@
+# ----------------- Setting up the libraries ----------------- #
+
 import streamlit as st
 import pandas as pd
 import yfinance as yf
@@ -5,11 +7,18 @@ import plotly.express as px
 import json
 import os
 
+"""
+This is a simple dashboard for watching over selected stocks. 
+The stocks are saved in stocks.json, which is stored in a public repository.
+The website is hosted on streamlit. 
+"""
+
+
 # ----------------- Loading the watchlist ----------------- #
 
 WATCHLIST_FILE = "stocks.json"
 DEFAULT_TICKERS = ["IREDA.NS", "BEL.NS"]
-
+   
 def load_tickers():
     try:
         if os.path.exists(WATCHLIST_FILE):
@@ -27,6 +36,8 @@ def load_tickers():
 
     return DEFAULT_TICKERS.copy()
 
+if "tickers" not in st.session_state:
+    st.session_state.tickers = load_tickers()
 
 def save_tickers(tickers):
     try:
