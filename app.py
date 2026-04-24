@@ -42,8 +42,15 @@ def rsi(series, period=14):
     gain = delta.clip(lower=0).rolling(period).mean()
     loss = (-delta.clip(upper=0)).rolling(period).mean()
     rs = gain / loss
-    val = 100 - (100 / (1 + rs))
-    return round(val.iloc[-1], 2)
+    value = (100 - (100 / (1 + rs))).iloc[-1]
+
+    if pd.isna(value):
+        return "NA"
+    elif value < 30:
+        return "Underbought"
+    elif value > 70:
+        return "Overbought"
+    return "Neutral"
 
 def bollinger_label(close):
     if len(close) < 20:
@@ -193,11 +200,25 @@ def color_signal(val):
         return "color:red;font-weight:bold"
     elif val in ["Underbought", "Bullish", "Golden Cross", "Oversold", "Positive"]:
         return "color:green;font-weight:bold"
-    return "color:gray;font-weight:bold"
+    return "color:black;font-weight:bold"
 
-styled = df.style.map(
+display_df = df[
+    [
+        "Ticker",
+        "Price",
+        "Day %",
+        "Month %",
+        "Year %",
+        "RSI",
+        "Bollinger Bands",
+        "MA Cross",
+        "Momentum Score"
+    ]
+]
+
+styled = display_df.style.map(
     color_signal,
-    subset=["Bollinger Bands", "Momentum Score", "MA Cross"]
+    subset=["RSI", "Bollinger Bands", "Momentum Score", "MA Cross"]
 )
 
 st.subheader("Portfolio Table")
