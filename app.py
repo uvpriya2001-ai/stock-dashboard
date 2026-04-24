@@ -126,20 +126,35 @@ def load_data(tickers):
 
     for ticker in tickers:
         try:
-            hist = yf.download(ticker, period="1y", auto_adjust=True, progress=False)
+            hist = yf.download(
+                ticker,
+                period="1y",
+                auto_adjust=True,
+                progress=False,
+                group_by="column",
+                threads=False
+            )
 
-            if hist.empty or "Close" not in hist:
+            if hist.empty:
                 continue
 
-            close = hist["Close"].dropna()
+            # Handle MultiIndex columns safely
+            if isinstance(hist.columns, pd.MultiIndex):
+                if "Close" in hist.columns.get_level_values(0):
+                    close = hist["Close"].iloc[:, 0].dropna()
+                else:
+                    continue
+            else:
+                if "Close" not in hist.columns:
+                    continue
+                close = hist["Close"].dropna()
 
             if close.empty or len(close) < 2:
                 continue
 
-            info = yf.Ticker(ticker).fast_info
-            current = close.iloc[-1]
-            high = close.max()
-            low = close.min()
+            current = float(close.iloc[-1])
+            high = float(close.max())
+            low = float(close.min())
 
             price_map[ticker] = close
 
@@ -158,11 +173,11 @@ def load_data(tickers):
                 "52W High": round(high, 2),
                 "52W Low": round(low, 2)
             })
-        except:
+
+        except Exception:
             continue
 
     return pd.DataFrame(rows), price_map
-
 # ---------------- Sidebar ----------------- #
 with st.sidebar:
     st.header("Manage Stocks")
