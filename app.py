@@ -137,6 +137,8 @@ def market_data():
         return nifty_val, nifty_ret, vix_val, vix_ret
     except:
         return 0.0, 0.0, 0.0, 0.0
+
+
 # ---------------- Load Data ----------------- #
 @st.cache_data(ttl=600)
 def load_data(tickers):
@@ -197,6 +199,8 @@ def load_data(tickers):
             continue
 
     return pd.DataFrame(rows), price_map
+
+
 # ---------------- Sidebar ----------------- #
 with st.sidebar:
     st.header("Manage Stocks")
@@ -225,6 +229,7 @@ with st.sidebar:
         st.rerun()
 
 # ---------------- Main ----------------- #
+
 st.title("Stock Dashboard")
 st.caption("This dashboard monitors all your favourite stocks at one place.")
 
@@ -256,12 +261,13 @@ df["Buy Score"] = (
     (df["Momentum Score"].isin(["Bullish","Positive"])).astype(int) * 8
 )
 
-sort_order = st.selectbox("Sort By", ["Buy Score", "Day %", "Month %", "Year %", "Drawdown %"])
+sort_order = st.selectbox("Sort By", ["Buy Score", "Momentum Score" , "Month %", "Year %", "Drawdown %"])
 ascending = st.checkbox("Ascending Order", value=False)
 
 df = df.sort_values(sort_order, ascending=ascending)
 
 # ---------------- Table ----------------- #
+
 def color_signal(val):
     if val in ["Overbought","Bearish","Death Cross"]:
         return "color:red;font-weight:bold"
@@ -271,7 +277,7 @@ def color_signal(val):
 
 display_df = df[
     ["Ticker","Price","Day %","Month %","Year %","RSI",
-     "Bollinger Bands","MA Cross","Momentum Score","Drawdown %","Buy Score"]
+     "Bollinger Bands","MA Cross","Momentum Score","Drawdown %"]
 ]
 
 styled = (
