@@ -241,5 +241,5 @@ else:
         st.subheader('Returns Comparison')
         chart_df = df[['Ticker','Day %','Month %','Year %']].set_index('Ticker')
         st.bar_chart(chart_df)
-else:
-    st.warning('No data available.')
+    else:
+        st.warning('No data available.')
