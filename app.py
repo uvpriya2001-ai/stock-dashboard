@@ -178,19 +178,85 @@ c3.metric("Top Year Gainer", df.loc[df["Year %"].idxmax(), "Ticker"], f'{df["Yea
 # ---------------- Portfolio Dashboard ----------------- #
 
 st.subheader("Portfolio")
-st.dataframe(df, use_container_width=True, hide_index=True)
+
+def color_signal(val):
+    if val in ["Overbought", "Bearish", "Death Cross"]:
+        return "color:red; font-weight:bold"
+    elif val in ["Underbought", "Bullish", "Golden Cross", "Oversold"]:
+        return "color:green; font-weight:bold"
+    return "color:gray; font-weight:bold"
+
+styled = df.style.map(
+    color_signal,
+    subset=["Bollinger Bands", "Momentum Score", "MA Cross"]
+).format({
+    "Price": "{:.2f}",
+    "52W High": "{:.2f}",
+    "52W Low": "{:.2f}",
+    "RSI": "{:.2f}",
+    "Day %": "{:.2f}",
+    "Month %": "{:.2f}",
+    "Year %": "{:.2f}"
+})
+
+st.subheader("Portfolio Table")
+st.dataframe(styled, use_container_width=True, hide_index=True, height=450)
+
 
 col1, col2 = st.columns(2)
 
 # ---------------- Sector Dashboard ----------------- #
 
-with col1:
+# ---------------- PIE CHART ----------------
+with left:
     st.subheader("Sector Concentration")
-    sector = pd.DataFrame({"Type": ["Watchlist"], "Count": [len(df)]})
-    fig = px.pie(sector, names="Type", values="Count")
-    st.plotly_chart(fig, use_container_width=True)
 
-with col2:
-    st.subheader("Returns Comparison")
-    chart_df = df[["Ticker", "Day %", "Month %", "Year %"]].set_index("Ticker")
-    st.bar_chart(chart_df)
+    sector_df = df.groupby("Sector").size().reset_index(name="Count")
+
+    fig_pie = px.pie(
+        sector_df,
+        names="Sector",
+        values="Count",
+        hole=0.45
+    )
+
+    fig_pie.update_layout(
+        height=420,
+        margin=dict(l=10, r=10, t=40, b=10)
+    )
+
+    st.plotly_chart(fig_pie, use_container_width=True)
+
+# ---------------- CORRELATION HEATMAP ----------------
+with right:
+    st.subheader("Correlation Heatmap")
+
+    price_data = pd.DataFrame()
+
+    for ticker in st.session_state.tickers:
+        try:
+            temp = yf.Ticker(ticker).history(period="6mo")["Close"]
+            price_data[ticker] = temp
+        except:
+            pass
+
+    if not price_data.empty and price_data.shape[1] > 1:
+        corr = price_data.pct_change().dropna().corr()
+
+        fig_heat = px.imshow(
+            corr,
+            text_auto=".2f",
+            aspect="auto",
+            color_continuous_scale="RdYlGn",
+            zmin=-1,
+            zmax=1
+        )
+
+        fig_heat.update_layout(
+            height=420,
+            margin=dict(l=10, r=10, t=40, b=10)
+        )
+
+        st.plotly_chart(fig_heat, use_container_width=True)
+    else:
+        st.info("Need at least 2 valid stocks for heatmap.")
