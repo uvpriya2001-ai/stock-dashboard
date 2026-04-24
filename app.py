@@ -148,7 +148,7 @@ def load_data(tickers):
                 "Bollinger Bands": bollinger_label(close),
                 "MA Cross": ma_cross(close),
                 "Momentum Score": momentum_label(close),
-                "RSI": rsi(close)
+                "RSI": rsi(close),
                 "Drawdown %": round((close.iloc[-1] / close.max() - 1) * 100, 2)
             })
 
