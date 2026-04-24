@@ -7,13 +7,6 @@ import plotly.express as px
 import json
 import os
 
-"""
-This is a simple dashboard for watching over selected stocks. 
-The stocks are saved in stocks.json, which is stored in a public repository.
-The website is hosted on streamlit. 
-"""
-
-
 # ----------------- Loading the watchlist ----------------- #
 
 WATCHLIST_FILE = "stocks.json"
