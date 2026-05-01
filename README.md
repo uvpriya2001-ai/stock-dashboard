@@ -1,2 +1,1 @@
-# stock-dashboard
-Dashboard for Personal Finance
+This is a generic dashboard for monitoring your portfolio.
