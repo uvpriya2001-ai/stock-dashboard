@@ -1,1 +1,1 @@
-This is a generic dashboard for monitoring your portfolio.
+This is a generic dashboard for monitoring your handpicked stocks and oversee their performance. 
