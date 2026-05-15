@@ -395,12 +395,12 @@ with tab2:
         for idx, row in indices_df.iterrows():
             col = cols[idx % 3]
             with col:
-                change_color = "green" if row["Day %"] > 0 else "red"
+                bg_color = "#10b981" if row["Day %"] > 0 else "#ef4444"
                 st.markdown(f"""
-                <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:15px;border-radius:8px;color:white;text-align:center;margin:5px;">
-                    <div style="font-size:12px;opacity:0.9;">{row['Index']}</div>
-                    <div style="font-size:20px;font-weight:bold;">{row['Price']:.2f}</div>
-                    <div style="font-size:14px;color:{change_color};font-weight:bold;">{row['Day %']:+.2f}%</div>
+                <div style="background:{bg_color};padding:20px;border-radius:10px;color:white;text-align:center;margin:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                    <div style="font-size:18px;font-weight:bold;margin-bottom:8px;">{row['Index']}</div>
+                    <div style="font-size:24px;font-weight:bold;margin-bottom:8px;">{row['Price']:.2f}</div>
+                    <div style="font-size:16px;font-weight:bold;">{row['Day %']:+.2f}%</div>
                 </div>
                 """, unsafe_allow_html=True)
         
@@ -424,7 +424,7 @@ with tab2:
             fig_year = px.bar(indices_df, x="Index", y="Year %", color="Year %", color_continuous_scale="RdYlGn")
             fig_year.update_layout(height=400, showlegend=False)
             st.plotly_chart(fig_year, use_container_width=True)
-
+ 
 # ============= TAB 3 =============
 with tab3:
     df, price_map = load_data(tuple(st.session_state.tickers))
