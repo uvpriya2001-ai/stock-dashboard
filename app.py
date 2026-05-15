@@ -41,15 +41,18 @@ DEFAULT_TICKERS = [
 ]
 
 SECTOR_INDICES = {
-    "Nifty 50": "^NSEI",
-    "Sensex": "^BSESN",
-    "Nifty Midcap 50": "^NIFTYMID50",
-    "Nifty Smallcap 50": "^NIFTYSMALLCAP50",
-    "Nifty Bank": "^NIFTYBANK",
-    "Nifty IT": "^NIFTYIT",
-    "Nifty Pharma": "^NIFTYPHARMA",
-    "Nifty Auto": "^NIFTYAUTO",
-    "India VIX": "^INDIAVIX"
+    "Nifty 50": ("^NSEI",),
+    "Sensex": ("^BSESN",),
+    "India VIX": ("^INDIAVIX",),
+    "Nifty Smallcap 50": ("NIFTYSMLCAP50.NS", "^NIFTYSMALLCAP50"),
+    "Nifty Midcap 50": ("^NSEMDCP50", "^NIFTYMID50"),
+    "Nifty Bank": ("^NSEBANK", "^NIFTYBANK"),
+    "Nifty IT": ("^CNXIT", "^NIFTYIT"),
+    "Nifty Auto": ("^CNXAUTO", "^NIFTYAUTO"),
+    "Nifty Energy": ("^CNXENERGY", "^NIFTYENERGY"),
+    "Nifty FMCG": ("^CNXFMCG", "^NIFTYFMCG"),
+    "Nifty Pharma": ("^CNXPHARMA", "^NIFTYPHARMA"),
+    "Nifty Realty": ("^CNXREALTY", "^NIFTYREALTY")
 }
 
 def load_tickers():
@@ -137,7 +140,7 @@ def load_data(tickers):
     price_map = {}
     for ticker in tickers:
         try:
-            hist = yf.download(ticker, period="1y", auto_adjust=True, progress=False, group_by="column", threads=False)
+            hist = yf.download(ticker, period="3y", auto_adjust=True, progress=False, group_by="column", threads=False)
             if hist.empty:
                 continue
             if isinstance(hist.columns, pd.MultiIndex):
@@ -306,7 +309,7 @@ with tab1:
         st.metric("Top Year Gainer", top_year["Ticker"], f'{top_year["Year %"]:.2f}%')
         st.metric("Worst Year Loser", bottom_year["Ticker"], f'{bottom_year["Year %"]:.2f}%')
     
-    st.metric("Top Momentum Stock (Q{})".format(current_quarter), top_momentum["Ticker"], f'{top_momentum["Momentum_Score"]:.2f}')
+    st.metric("Top Momentum Stock this quarter".format(current_quarter), top_momentum["Ticker"], f'{top_momentum["Momentum_Score"]:.2f}')
     st.divider()
     
     col1, col2 = st.columns(2)
@@ -324,11 +327,11 @@ with tab1:
             return "color:green;font-weight:bold"
         return "color:grey;font-weight:bold"
     
-    table_cols = ["Ticker","Price","Day %","Month %","Year %","RSI","Bollinger Bands","MA Cross","Momentum","Momentum_Score","Drawdown %"]
+    table_cols = ["Ticker","Price","Day %","Month %","Year %","RSI","Bollinger Bands","MA Cross","Momentum","Momentum_Score","Drawdown %","52W High", "52W Low"]
     table_display = display_df[table_cols].copy()
     styled = (
         table_display.style
-        .format({"Price":"{:.2f}","Day %":"{:.2f}","Month %":"{:.2f}","Year %":"{:.2f}","Momentum_Score":"{:.2f}","Drawdown %":"{:.2f}"})
+        .format({"Price":"{:.2f}","Day %":"{:.2f}","Month %":"{:.2f}","Year %":"{:.2f}","Momentum_Score":"{:.2f}","Drawdown %":"{:.2f}","52W High":"{:.2f}","52W Low":"{:.2f}" })
         .map(color_signal, subset=["RSI","Bollinger Bands","MA Cross","Momentum"])
     )
     st.subheader("Watchlist Table")
