@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import yfinance as yf
-import itertools
 import json
 import os
 import plotly.express as px
@@ -42,18 +41,15 @@ DEFAULT_TICKERS = [
 ]
 
 SECTOR_INDICES = {
-    "Nifty 50": ("^NSEI",),
-    "Sensex": ("^BSESN",),
-    "India VIX": ("^INDIAVIX",),
-    "Nifty Smallcap 50": ("NIFTYSMLCAP50.NS", "^NIFTYSMALLCAP50"),
-    "Nifty Midcap 50": ("^NSEMDCP50", "^NIFTYMID50"),
-    "Nifty Bank": ("^NSEBANK", "^NIFTYBANK"),
-    "Nifty IT": ("^CNXIT", "^NIFTYIT"),
-    "Nifty Auto": ("^CNXAUTO", "^NIFTYAUTO"),
-    "Nifty Energy": ("^CNXENERGY", "^NIFTYENERGY"),
-    "Nifty FMCG": ("^CNXFMCG", "^NIFTYFMCG"),
-    "Nifty Pharma": ("^CNXPHARMA", "^NIFTYPHARMA"),
-    "Nifty Realty": ("^CNXREALTY", "^NIFTYREALTY")
+    "Nifty 50": "^NSEI",
+    "Sensex": "^BSESN",
+    "Nifty Midcap 50": "^NIFTYMID50",
+    "Nifty Smallcap 50": "^NIFTYSMALLCAP50",
+    "Nifty Bank": "^NIFTYBANK",
+    "Nifty IT": "^NIFTYIT",
+    "Nifty Pharma": "^NIFTYPHARMA",
+    "Nifty Auto": "^NIFTYAUTO",
+    "India VIX": "^INDIAVIX"
 }
 
 def load_tickers():
@@ -186,22 +182,12 @@ def load_data(tickers):
             continue
     return pd.DataFrame(rows), price_map
 
-def download_first_available(symbols):
-    for symbol in symbols:
-        try:
-            hist = yf.download(symbol, period="1y", auto_adjust=True, progress=False, group_by="column", threads=False)
-            if not hist.empty:
-                return hist, symbol
-        except:
-            continue
-    return pd.DataFrame(), None
-
 @st.cache_data(ttl=600)
 def load_sector_indices_data():
     rows = []
-    for name, symbols in SECTOR_INDICES.items():
+    for name, symbol in SECTOR_INDICES.items():
         try:
-            hist, matched_symbol = download_first_available(symbols)
+            hist = yf.download(symbol, period="1y", auto_adjust=True, progress=False, group_by="column", threads=False)
             if hist.empty:
                 continue
             if isinstance(hist.columns, pd.MultiIndex):
@@ -221,7 +207,6 @@ def load_sector_indices_data():
             year_ret = round((current / start - 1) * 100, 2)
             rows.append({
                 "Index": name,
-                "Symbol": matched_symbol,
                 "Price": round(current, 2),
                 "Day %": day_ret,
                 "Month %": month_ret,
@@ -233,48 +218,36 @@ def load_sector_indices_data():
             continue
     return pd.DataFrame(rows)
 
-def render_index_cards(indices_df):
-    cols = st.columns(3)
-    for idx, row in indices_df.iterrows():
-        col = cols[idx % 3]
-        with col:
-            change_color = "#16a34a" if row["Day %"] > 0 else "#dc2626"
-            st.markdown(f"""
-            <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:15px;border-radius:8px;color:white;text-align:center;margin:5px;">
-                <div style="font-size:12px;opacity:0.9;">{row['Index']}</div>
-                <div style="font-size:20px;font-weight:bold;">{row['Price']:.2f}</div>
-                <div style="font-size:14px;color:{change_color};font-weight:bold;">{row['Day %']:+.2f}%</div>
-            </div>
-            """, unsafe_allow_html=True)
-
 @st.cache_data(ttl=600)
-def find_best_bundles(price_map, bundle_size=5, top_n=3):
-    if len(price_map) < bundle_size:
+def find_best_pairs(price_map, top_n=5):
+    if len(price_map) < 2:
         return None
     price_df = pd.DataFrame(price_map).dropna(axis=1, how="all")
     returns = price_df.pct_change().dropna(how="all").dropna(axis=1, how="all")
-    if returns.shape[1] < bundle_size:
+    if returns.shape[1] < 2:
         return None
     corr = returns.corr()
-    valid_tickers = list(returns.columns)
-    bundles = []
-    weights = np.repeat(1 / bundle_size, bundle_size)
-    for selected_tickers in itertools.combinations(valid_tickers, bundle_size):
-        bundle_corr = corr.loc[selected_tickers, selected_tickers]
-        pairwise_corr = bundle_corr.where(~np.eye(bundle_size, dtype=bool)).stack().mean()
-        momentum_scores = [momentum_score_numeric(price_map[ticker]) for ticker in selected_tickers]
-        expected_return = np.mean(momentum_scores)
-        covariance = returns.loc[:, selected_tickers].cov().to_numpy() * 252
-        portfolio_vol = np.sqrt(weights @ covariance @ weights)
-        bundles.append({
-            "Bundle": " + ".join(selected_tickers),
-            "Avg_Correlation": round(pairwise_corr, 3),
-            "Expected_Quarterly_Return": round(expected_return, 2),
-            "Portfolio_Volatility": round(portfolio_vol, 4)
-        })
-    bundles_df = pd.DataFrame(bundles)
-    bundles_df = bundles_df.sort_values(["Avg_Correlation", "Expected_Quarterly_Return"], ascending=[True, False])
-    return bundles_df.head(top_n)
+    pairs = []
+    tickers = list(price_map.keys())
+    for i in range(len(tickers)):
+        for j in range(i+1, len(tickers)):
+            ticker1, ticker2 = tickers[i], tickers[j]
+            correlation = corr.loc[ticker1, ticker2]
+            momentum1 = momentum_score_numeric(price_map[ticker1])
+            momentum2 = momentum_score_numeric(price_map[ticker2])
+            expected_return = (momentum1 + momentum2) / 2
+            vol1 = returns[ticker1].std() * np.sqrt(252)
+            vol2 = returns[ticker2].std() * np.sqrt(252)
+            portfolio_vol = np.sqrt((0.5*vol1)**2 + (0.5*vol2)**2 + 2*0.5*0.5*correlation*vol1*vol2)
+            pairs.append({
+                "Bundle": f"{ticker1} + {ticker2}",
+                "Correlation": round(correlation, 3),
+                "Expected_Quarterly_Return": round(expected_return, 2),
+                "Portfolio_Volatility": round(portfolio_vol, 4)
+            })
+    pairs_df = pd.DataFrame(pairs)
+    pairs_df = pairs_df.sort_values(["Correlation", "Expected_Quarterly_Return"], ascending=[True, False])
+    return pairs_df.head(top_n)
 
 # ============= SIDEBAR =============
 with st.sidebar:
@@ -312,16 +285,8 @@ with tab1:
     if df.empty:
         st.warning("No valid data found.")
         st.stop()
-
+    
     st.subheader("Market Overview")
-    indices_df = load_sector_indices_data()
-    if not indices_df.empty:
-        st.markdown("**Index Snapshot**")
-        render_index_cards(indices_df)
-    else:
-        st.info("Unable to fetch market index cards right now.")
-    st.divider()
-
     top_day = df.loc[df["Day %"].fillna(-9999).idxmax()]
     bottom_day = df.loc[df["Day %"].fillna(9999).idxmin()]
     top_month = df.loc[df["Month %"].fillna(-9999).idxmax()]
@@ -329,7 +294,7 @@ with tab1:
     top_year = df.loc[df["Year %"].fillna(-9999).idxmax()]
     bottom_year = df.loc[df["Year %"].fillna(9999).idxmin()]
     top_momentum = df.loc[df["Momentum_Score"].idxmax()]
-
+    
     c1, c2, c3 = st.columns(3)
     with c1:
         st.metric("Top Day Gainer", top_day["Ticker"], f'{top_day["Day %"]:.2f}%')
@@ -340,25 +305,25 @@ with tab1:
     with c3:
         st.metric("Top Year Gainer", top_year["Ticker"], f'{top_year["Year %"]:.2f}%')
         st.metric("Worst Year Loser", bottom_year["Ticker"], f'{bottom_year["Year %"]:.2f}%')
-
+    
     st.metric("Top Momentum Stock (Q{})".format(current_quarter), top_momentum["Ticker"], f'{top_momentum["Momentum_Score"]:.2f}')
     st.divider()
-
+    
     col1, col2 = st.columns(2)
     with col1:
         sort_order = st.selectbox("Sort By", ["Momentum_Score", "Month %", "Year %", "Drawdown %", "Day %"])
     with col2:
         ascending = st.checkbox("Ascending Order", value=False)
-
+    
     display_df = df.sort_values(sort_order, ascending=ascending)
-
+    
     def color_signal(val):
         if val in ["Overbought","Bearish","Death Cross"]:
             return "color:red;font-weight:bold"
         if val in ["Underbought","Bullish","Golden Cross","Oversold","Positive"]:
             return "color:green;font-weight:bold"
         return "color:grey;font-weight:bold"
-
+    
     table_cols = ["Ticker","Price","Day %","Month %","Year %","RSI","Bollinger Bands","MA Cross","Momentum","Momentum_Score","Drawdown %"]
     table_display = display_df[table_cols].copy()
     styled = (
@@ -371,7 +336,7 @@ with tab1:
     csv = display_df.to_csv(index=False).encode("utf-8")
     st.download_button("Download CSV", csv, "stock_dashboard.csv", "text/csv")
     st.divider()
-
+    
     col_left, col_right = st.columns(2)
     with col_left:
         st.subheader("Sector Concentration")
@@ -386,7 +351,7 @@ with tab1:
         fig_momentum = px.bar(momentum_counts, x="Momentum", y="Count", color="Momentum")
         fig_momentum.update_layout(height=400, showlegend=False)
         st.plotly_chart(fig_momentum, use_container_width=True)
-
+    
     st.subheader("Correlation Heatmap")
     if len(price_map) > 1:
         price_df = pd.DataFrame(price_map).dropna(axis=1, how="all")
@@ -400,31 +365,42 @@ with tab1:
             st.info("Not enough valid stocks for heatmap.")
     else:
         st.info("Need at least 2 valid stocks for heatmap.")
-
+    
     st.divider()
     st.subheader("Best Diversification Bundles (Q{})".format(current_quarter))
-    bundles_df = find_best_bundles(price_map, bundle_size=5, top_n=3)
-    if bundles_df is not None and not bundles_df.empty:
-        display_bundles = bundles_df[["Bundle", "Avg_Correlation", "Expected_Quarterly_Return", "Portfolio_Volatility"]]
-        styled_bundles = (
-            display_bundles.style
-            .format({"Avg_Correlation": "{:.3f}","Expected_Quarterly_Return": "{:.2f}%","Portfolio_Volatility": "{:.4f}"})
+    pairs_df = find_best_pairs(price_map, top_n=5)
+    if pairs_df is not None and not pairs_df.empty:
+        display_pairs = pairs_df[["Bundle", "Correlation", "Expected_Quarterly_Return", "Portfolio_Volatility"]]
+        styled_pairs = (
+            display_pairs.style
+            .format({"Correlation": "{:.3f}","Expected_Quarterly_Return": "{:.2f}%","Portfolio_Volatility": "{:.4f}"})
         )
-        st.dataframe(styled_bundles, use_container_width=True, hide_index=True)
-        st.info("Lower average correlation indicates better diversification. Expected return assumes equal-weight allocation across each 5-stock bundle. Target: 5-6% quarterly.")
+        st.dataframe(styled_pairs, use_container_width=True, hide_index=True)
+        st.info("Lower correlation indicates better diversification. Expected return assumes equal-weight allocation. Target: 5-6% quarterly.")
     else:
-        st.warning("Need at least 5 stocks for diversification analysis.")
+        st.warning("Need at least 2 stocks for diversification analysis.")
 
 # ============= TAB 2 =============
 with tab2:
     st.subheader("Indian Market Indices Overview")
-
+    
     indices_df = load_sector_indices_data()
     if indices_df.empty:
         st.error("Unable to fetch sector indices data.")
     else:
-        render_index_cards(indices_df)
-
+        cols = st.columns(3)
+        for idx, row in indices_df.iterrows():
+            col = cols[idx % 3]
+            with col:
+                change_color = "green" if row["Day %"] > 0 else "red"
+                st.markdown(f"""
+                <div style="background:linear-gradient(135deg,#667eea,#764ba2);padding:15px;border-radius:8px;color:white;text-align:center;margin:5px;">
+                    <div style="font-size:12px;opacity:0.9;">{row['Index']}</div>
+                    <div style="font-size:20px;font-weight:bold;">{row['Price']:.2f}</div>
+                    <div style="font-size:14px;color:{change_color};font-weight:bold;">{row['Day %']:+.2f}%</div>
+                </div>
+                """, unsafe_allow_html=True)
+        
         st.divider()
         st.subheader("Detailed Sector Index Performance")
         styled_sector = (
@@ -433,7 +409,7 @@ with tab2:
             .map(lambda x: 'color: green; font-weight: bold' if (isinstance(x, (int, float)) and x > 0) else 'color: red; font-weight: bold' if (isinstance(x, (int, float)) and x < 0) else '', subset=["Day %", "Month %", "Year %"])
         )
         st.dataframe(styled_sector, use_container_width=True, hide_index=True)
-
+        
         col_left, col_right = st.columns(2)
         with col_left:
             st.subheader("Day Performance")
@@ -456,7 +432,7 @@ with tab3:
         selected_sector = st.selectbox("Select Sector", sectors)
         sector_stocks = df[df["Sector"] == selected_sector].sort_values("Momentum_Score", ascending=False)
         st.subheader(f"Sector: {selected_sector} ({len(sector_stocks)} Stocks)")
-
+        
         col1, col2, col3, col4 = st.columns(4)
         with col1:
             avg_momentum = sector_stocks["Momentum_Score"].mean()
@@ -470,7 +446,7 @@ with tab3:
         with col4:
             positive_momentum = len(sector_stocks[sector_stocks["Momentum"].isin(["Bullish", "Positive"])])
             st.metric("Bullish Stocks", f"{positive_momentum}/{len(sector_stocks)}")
-
+        
         st.divider()
         sector_table = sector_stocks[["Ticker", "Price", "Day %", "Month %", "Year %", "Momentum", "Momentum_Score", "Drawdown %"]].copy()
         styled_sector = (
@@ -480,7 +456,7 @@ with tab3:
             .map(lambda x: 'color: green; font-weight: bold' if (isinstance(x, (int, float)) and x > 0) else 'color: red; font-weight: bold' if (isinstance(x, (int, float)) and x < 0) else '', subset=["Day %", "Month %", "Year %", "Drawdown %"])
         )
         st.dataframe(styled_sector, use_container_width=True, hide_index=True)
-
+        
         col_left, col_right = st.columns(2)
         with col_left:
             st.subheader("Momentum Scores")
