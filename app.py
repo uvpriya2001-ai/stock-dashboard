@@ -251,7 +251,56 @@ def find_best_pairs(price_map, top_n=5):
     pairs_df = pd.DataFrame(pairs)
     pairs_df = pairs_df.sort_values(["Correlation", "Expected_Quarterly_Return"], ascending=[True, False])
     return pairs_df.head(top_n)
+    
+# ============= UNUSUAL VOLATILITY TRACKER =============
+@st.cache_data(ttl=600)
+def unusual_volatility_tracker(price_map):
+    volatility_rows = []
 
+    for ticker, close in price_map.items():
+        try:
+            returns = close.pct_change().dropna()
+
+            if len(returns) < 30:
+                continue
+
+            # 3-day current volatility
+            current_vol = returns.tail(3).std() * np.sqrt(252) * 100
+
+            # 30-day average volatility
+            average_vol = returns.tail(30).std() * np.sqrt(252) * 100
+
+            if average_vol == 0:
+                continue
+
+            vol_ratio = current_vol / average_vol
+
+            if vol_ratio > 1.5:
+                status = "High"
+            elif vol_ratio > 1.0:
+                status = "Elevated"
+            else:
+                continue
+
+            volatility_rows.append({
+                "Ticker": ticker,
+                "Current Volatility (%)": round(current_vol, 2),
+                "Average Volatility (%)": round(average_vol, 2),
+                "Volatility Ratio": round(vol_ratio, 2),
+                "Status": status
+            })
+
+        except:
+            continue
+
+    if volatility_rows:
+        return pd.DataFrame(volatility_rows).sort_values(
+            "Volatility Ratio",
+            ascending=False
+        )
+
+    return pd.DataFrame()
+    
 # ============= SIDEBAR =============
 with st.sidebar:
     st.header("Manage Stocks")
@@ -284,6 +333,48 @@ tab1, tab2, tab3 = st.tabs(["Watchlist", "Market Indices", "Sector Deep Dive"])
 
 # ============= TAB 1 =============
 with tab1:
+    st.subheader("Indian Market Indices Overview")
+    
+    indices_df = load_sector_indices_data()
+    if indices_df.empty:
+        st.error("Unable to fetch sector indices data.")
+    else:
+        cols = st.columns(3)
+        for idx, row in indices_df.iterrows():
+            col = cols[idx % 3]
+            with col:
+                bg_color = "#10b981" if row["Day %"] > 0 else "#ef4444"
+                st.markdown(f"""
+                <div style="background:{bg_color};padding:20px;border-radius:10px;color:white;text-align:center;margin:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                    <div style="font-size:18px;font-weight:bold;margin-bottom:8px;">{row['Index']}</div>
+                    <div style="font-size:24px;font-weight:bold;margin-bottom:8px;">{row['Price']:.2f}</div>
+                    <div style="font-size:16px;font-weight:bold;">{row['Day %']:+.2f}%</div>
+                </div>
+                """, unsafe_allow_html=True)
+        
+        st.divider()
+        st.subheader("Detailed Sector Index Performance")
+        styled_sector = (
+            indices_df.style
+            .format({"Price": "{:.2f}","Day %": "{:.2f}","Month %": "{:.2f}","Year %": "{:.2f}","52W High": "{:.2f}","52W Low": "{:.2f}"})
+            .map(lambda x: 'color: green; font-weight: bold' if (isinstance(x, (int, float)) and x > 0) else 'color: red; font-weight: bold' if (isinstance(x, (int, float)) and x < 0) else '', subset=["Day %", "Month %", "Year %"])
+        )
+        st.dataframe(styled_sector, use_container_width=True, hide_index=True)
+        
+        col_left, col_right = st.columns(2)
+        with col_left:
+            st.subheader("Day Performance")
+            fig_day = px.bar(indices_df, x="Index", y="Day %", color="Day %", color_continuous_scale="RdYlGn")
+            fig_day.update_layout(height=400, showlegend=False)
+            st.plotly_chart(fig_day, use_container_width=True)
+        with col_right:
+            st.subheader("Year Performance")
+            fig_year = px.bar(indices_df, x="Index", y="Year %", color="Year %", color_continuous_scale="RdYlGn")
+            fig_year.update_layout(height=400, showlegend=False)
+            st.plotly_chart(fig_year, use_container_width=True)
+
+# ============= TAB 2 =============
+with tab2:
     df, price_map = load_data(tuple(st.session_state.tickers))
     if df.empty:
         st.warning("No valid data found.")
@@ -310,6 +401,47 @@ with tab1:
         st.metric("Worst Year Loser", bottom_year["Ticker"], f'{bottom_year["Year %"]:.2f}%')
     
     st.metric("Top Momentum Stock this quarter".format(current_quarter), top_momentum["Ticker"], f'{top_momentum["Momentum_Score"]:.2f}')
+
+    # ============= UNUSUAL VOLATILITY SECTION =============
+    st.divider()
+    st.subheader("Unusual Volatility Tracker")
+
+    volatility_df = unusual_volatility_tracker(price_map)
+
+    if not volatility_df.empty:
+
+        def volatility_color(val):
+            if val == "High":
+                return "color:red;font-weight:bold"
+            if val == "Elevated":
+                return "color:orange;font-weight:bold"
+            return ""
+    
+        styled_volatility = (
+            volatility_df.style
+            .format({
+                "Current Volatility (%)": "{:.2f}",
+                "Average Volatility (%)": "{:.2f}",
+                "Volatility Ratio": "{:.2f}x"
+            })
+            .map(volatility_color, subset=["Status"])
+        )
+    
+        st.dataframe(
+            styled_volatility,
+            use_container_width=True,
+            hide_index=True
+        )
+    
+        st.info(
+            "This tracker compares short-term 3-day volatility against "
+            "normal 30-day volatility. Elevated readings may indicate "
+            "potential breakouts, reversals, panic selling, or strong momentum moves."
+        )
+    
+    else:
+        st.success("No unusual volatility spikes detected in the current watchlist.")
+    
     st.divider()
     
     col1, col2 = st.columns(2)
@@ -383,48 +515,6 @@ with tab1:
     else:
         st.warning("Need at least 2 stocks for diversification analysis.")
 
-# ============= TAB 2 =============
-with tab2:
-    st.subheader("Indian Market Indices Overview")
-    
-    indices_df = load_sector_indices_data()
-    if indices_df.empty:
-        st.error("Unable to fetch sector indices data.")
-    else:
-        cols = st.columns(3)
-        for idx, row in indices_df.iterrows():
-            col = cols[idx % 3]
-            with col:
-                bg_color = "#10b981" if row["Day %"] > 0 else "#ef4444"
-                st.markdown(f"""
-                <div style="background:{bg_color};padding:20px;border-radius:10px;color:white;text-align:center;margin:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
-                    <div style="font-size:18px;font-weight:bold;margin-bottom:8px;">{row['Index']}</div>
-                    <div style="font-size:24px;font-weight:bold;margin-bottom:8px;">{row['Price']:.2f}</div>
-                    <div style="font-size:16px;font-weight:bold;">{row['Day %']:+.2f}%</div>
-                </div>
-                """, unsafe_allow_html=True)
-        
-        st.divider()
-        st.subheader("Detailed Sector Index Performance")
-        styled_sector = (
-            indices_df.style
-            .format({"Price": "{:.2f}","Day %": "{:.2f}","Month %": "{:.2f}","Year %": "{:.2f}","52W High": "{:.2f}","52W Low": "{:.2f}"})
-            .map(lambda x: 'color: green; font-weight: bold' if (isinstance(x, (int, float)) and x > 0) else 'color: red; font-weight: bold' if (isinstance(x, (int, float)) and x < 0) else '', subset=["Day %", "Month %", "Year %"])
-        )
-        st.dataframe(styled_sector, use_container_width=True, hide_index=True)
-        
-        col_left, col_right = st.columns(2)
-        with col_left:
-            st.subheader("Day Performance")
-            fig_day = px.bar(indices_df, x="Index", y="Day %", color="Day %", color_continuous_scale="RdYlGn")
-            fig_day.update_layout(height=400, showlegend=False)
-            st.plotly_chart(fig_day, use_container_width=True)
-        with col_right:
-            st.subheader("Year Performance")
-            fig_year = px.bar(indices_df, x="Index", y="Year %", color="Year %", color_continuous_scale="RdYlGn")
-            fig_year.update_layout(height=400, showlegend=False)
-            st.plotly_chart(fig_year, use_container_width=True)
- 
 # ============= TAB 3 =============
 with tab3:
     df, price_map = load_data(tuple(st.session_state.tickers))
