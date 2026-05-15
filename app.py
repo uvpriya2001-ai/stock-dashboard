@@ -605,7 +605,7 @@ with tab2:
             "Value": "{:.2f}",
             "Day Change %": "{:.2f}"
         })
-        .applymap(
+        .map(
             lambda x: 'color: green; font-weight: bold' if (isinstance(x, (int, float)) and x > 0) else 'color: red; font-weight: bold' if (isinstance(x, (int, float)) and x < 0) else '',
             subset=["Day Change %"]
         )
